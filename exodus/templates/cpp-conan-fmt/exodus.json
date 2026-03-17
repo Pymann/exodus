@@ -1,0 +1,35 @@
+{
+    "$schema": "exodus.project.config-1.0",
+    "name": "cpp-conan-fmt",
+    "version": "0.1.0",
+    "dependencies": [],
+    "conan_packages": [
+        {
+            "name": "fmt",
+            "version": "10.2.1",
+            "arch": "x86_64",
+            "remote": "conancenter",
+            "required": true,
+            "digest": null
+        }
+    ],
+    "output_type": "executable",
+    "compiler": {
+        "name": "g++",
+        "lang_standard": "20",
+        "flags": []
+    },
+    "linker": {
+        "name": "g++",
+        "flags": [],
+        "libraries": [
+            "fmt"
+        ],
+        "library_paths": []
+    },
+    "search_paths": [],
+    "sources": [
+        "src/*.cpp",
+        "src/*.cc"
+    ]
+}

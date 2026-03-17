@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "exodus"
+version = "0.0.1"
+description = "A python package with a universal build process."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.0",
+    "tree-sitter>=0.21.0",
+    "tree-sitter-c>=0.21.0",
+    "tree-sitter-cpp>=0.21.0",
+    "clang>=20,<21",
+    "conan==2.26.2"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pylint",
+    "black",
+    "flake8",
+    "mypy",
+    "pre-commit",
+]
+all = [
+    "exodus[dev]",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/example/exodus"
+
+[tool.setuptools]
+packages = ["exodus"]
+
+[project.scripts]
+exodus = "exodus.main:main"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+show_error_codes = true
+pretty = true
+warn_unreachable = true
+no_implicit_optional = true
+namespace_packages = true
+mypy_path = "typings"
+
+[tool.black]
+line-length = 79

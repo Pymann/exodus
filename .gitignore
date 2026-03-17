@@ -1,0 +1,22 @@
+__pycache__/
+*.egg-info/
+dist/
+build/
+*.pyc
+
+# Build artifacts
+__exodus_cache/
+out/
+
+# IDE / Claude
+.claude/
+
+# Local scratch files
+fix_indent.py
+fix_indent_abs.py
+static.txt
+temp.cpp
+libclang_explanation.md
+misra_100_percent_roadmap.md
+misra_coverage.md
+unsupported_misra_rules.md

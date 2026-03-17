@@ -1,0 +1,55 @@
+[MAIN]
+ignore-paths=^typings/.*$
+persistent=no
+
+[FORMAT]
+max-line-length=100
+
+[MESSAGES CONTROL]
+disable=
+    line-too-long,
+    trailing-newlines,
+    trailing-whitespace,
+    missing-module-docstring,
+    missing-class-docstring,
+    missing-function-docstring,
+    too-many-lines,
+    too-many-arguments,
+    too-many-positional-arguments,
+    too-many-instance-attributes,
+    too-many-locals,
+    too-many-return-statements,
+    too-many-branches,
+    too-many-statements,
+    too-many-nested-blocks,
+    too-many-boolean-expressions,
+    too-few-public-methods,
+    multiple-statements,
+    broad-exception-caught,
+    cell-var-from-loop,
+    duplicate-code,
+    consider-using-in,
+    consider-using-get,
+    consider-using-enumerate,
+    consider-iterating-dictionary,
+    no-else-continue,
+    no-else-return,
+    chained-comparison,
+    logging-fstring-interpolation,
+    import-outside-toplevel,
+    protected-access,
+    unsupported-membership-test,
+    unsupported-assignment-operation,
+    possibly-used-before-assignment,
+    redefined-outer-name,
+    ungrouped-imports,
+    not-callable,
+    fixme,
+    unnecessary-pass,
+    unspecified-encoding,
+    reimported,
+    try-except-raise,
+    bad-indentation,
+    unused-import,
+    unused-variable,
+    unused-argument
