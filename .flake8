@@ -1,0 +1,16 @@
+[flake8]
+max-line-length = 88
+extend-ignore =
+    E203,
+    E501,
+    W293,
+    W391,
+    W503
+per-file-ignores =
+    exodus/tools/analyze/analyze.py: E117, E301, E741
+    exodus/tools/analyze/misra_clang_rules.py: E115, E117, E122, E126, E131, E225, E226, E231, E261, E301, E302, E303, E306, E701, E704, F841, W291
+    exodus/tools/analyze/misra_common_postprocess_rules.py: F401
+    exodus/tools/analyze/misra_cpp_class_rules.py: E126
+    exodus/tools/analyze/misra_fallback_scans.py: E117, E122, E131, F841
+    exodus/tools/analyze/misra_rules.py: E122, E131, E226, E261, E301, E302, E305, E713, F401
+    exodus/tools/build/build.py: E111, E114, E117, E225, E261, E303, F841

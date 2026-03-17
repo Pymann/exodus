@@ -1,0 +1,126 @@
+Exodus Community and Commercial Threshold License v0.1
+
+Copyright (c) 2026 Nikolai Ehrhardt
+
+Licensor:
+Nikolai Ehrhardt
+Debstedter Straße 111
+27607 Geestland
+
+1. Definitions
+
+"Software" means the Exodus software, including its source code, build logic,
+tools, scripts, and related materials distributed under this License.
+
+"Covered Product" means any software product, service, platform, internal
+system, or deliverable that is developed, built, compiled, generated,
+packaged, analyzed, or materially enabled through use of the Software.
+
+"Commercial Use" means any use of the Software or any Covered Product for
+direct or indirect commercial advantage, private monetary compensation,
+internal business operations, consulting delivery, hosted services, SaaS,
+licensing, subscription access, or paid support. For the avoidance of doubt,
+internal enterprise use counts as Commercial Use even if no external sale or
+external distribution occurs.
+
+"Non-Commercial Use" means personal, hobby, educational, academic, research,
+or evaluation use that is not part of revenue-generating or commercial
+business activity.
+
+"Revenue" means gross revenue, without deduction for costs, taxes, fees,
+refunds, or expenses, attributable to Covered Products during a calendar year.
+
+"Legal Entity" means the individual, company, organization, or other legal
+person using the Software.
+
+"Threshold" means EUR 100,000 in annual Revenue from Covered Products.
+
+"Commercial License Fee" means EUR 10,000 per calendar year.
+
+2. License Grant
+
+Subject to the terms of this License, you are granted a non-exclusive,
+non-transferable, revocable license to use, copy, modify, and distribute the
+Software in source or compiled form.
+
+3. Free Use Cases
+
+You may use the Software without payment if either of the following applies:
+
+1. Your use is Non-Commercial Use.
+2. Your Commercial Use does not cause the Revenue of your Legal Entity from
+   Covered Products to exceed the Threshold during the applicable calendar
+   year.
+
+4. Commercial Threshold Obligation
+
+If the Revenue of your Legal Entity from Covered Products exceeds the
+Threshold in any calendar year, then continued Commercial Use of the Software
+in that calendar year and each subsequent calendar year requires payment of
+the Commercial License Fee.
+
+The Commercial License Fee is due once per calendar year per Legal Entity,
+unless the Licensor offers a different written commercial agreement.
+
+Payment is due within thirty (30) days after written notice from the
+Licensor. Payment shall be made via PayPal to n.ehrhardt88@gmail.com, unless
+the Licensor provides different written payment instructions.
+
+5. Distribution
+
+You may distribute the Software, with or without modifications, provided that:
+
+1. You include this License with any distribution.
+2. You retain all copyright, attribution, and license notices.
+3. You clearly mark modified versions as modified.
+4. You do not represent your version as the original Software without
+   permission.
+
+6. No Open Source Representation
+
+This License is not intended to be an open source license as defined by the
+Open Source Definition published by the Open Source Initiative.
+
+7. Payment Requirement After Threshold
+
+If you exceed the Threshold and do not pay the Commercial License Fee, your
+license for Commercial Use automatically terminates after thirty (30) days
+written notice from the licensor, unless the required fee is paid within that
+cure period.
+
+Termination under this section does not affect any separate rights for
+Non-Commercial Use.
+
+8. Audit and Records
+
+Upon reasonable written notice, and no more than once per calendar year, the
+Licensor may request a written compliance statement and records reasonably
+sufficient to verify whether the Threshold has been exceeded.
+
+You are not required to disclose unrelated confidential technical information,
+but you must provide sufficient revenue and usage information to determine
+compliance with this License.
+
+9. Trademarks
+
+This License does not grant any right to use the licensor's trade names,
+trademarks, service marks, or logos, except as necessary for accurate
+attribution.
+
+10. Disclaimer of Warranty
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT.
+
+11. Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE
+LICENSOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN
+CONTRACT, TORT, OR OTHERWISE, ARISING FROM OR IN CONNECTION WITH THE SOFTWARE
+OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+12. Governing Law
+
+This License shall be governed by the laws of the Federal Republic of Germany,
+excluding its conflict of laws rules.

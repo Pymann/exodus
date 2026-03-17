@@ -1,0 +1,20 @@
+{
+    "$schema": "exodus.project.config-1.0",
+    "name": "cpp-app",
+    "version": "0.1.0",
+    "dependencies": [],
+    "output_type": "executable",
+    "compiler": {
+        "name": "g++",
+        "lang_standard": "17",
+        "flags": []
+    },
+    "linker": {
+        "name": "g++",
+        "flags": []
+    },
+    "sources": [
+        "*.cpp",
+        "*.cc"
+    ]
+}
