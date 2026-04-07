@@ -10,6 +10,9 @@ import clang.cindex
 from exodus.models.project import ProjectConfig
 from exodus.tools.analyze.libclang_config import resolve_libclang_path
 from exodus.tools.analyze.misra_clang_rules import analyze_clang_ast
+from exodus.tools.analyze.misra_rules import Violation
+
+CLANG_WORKER_CONTRACT_VERSION = 1
 
 
 class WorkerCrossTUDatabase:
@@ -116,13 +119,145 @@ def _config_from_payload(payload: Dict[str, object]) -> ProjectConfig:
         return ProjectConfig.parse_obj(raw)
 
 
+def _serialize_violations(violations: List[Violation]) -> List[Dict[str, Any]]:
+    return [
+        {
+            "rule": v.rule,
+            "message": v.message,
+            "file": str(v.file) if v.file else "",
+            "line": int(v.line),
+            "detector": v.detector,
+            "trigger": getattr(v, "trigger", "") or v._derived_trigger(),
+        }
+        for v in violations
+    ]
+
+
+def _emit_worker_status(
+    *,
+    stage: str,
+    source_file: Path,
+    mode: str,
+    detail: str = "",
+    extra: Dict[str, Any] | None = None,
+) -> None:
+    payload: Dict[str, Any] = {
+        "stage": stage,
+        "file": str(source_file),
+        "mode": mode,
+    }
+    if detail:
+        payload["detail"] = detail
+    if extra:
+        payload.update(extra)
+    state_file = os.environ.get("EXODUS_CLANG_STATE_FILE", "").strip()
+    if state_file:
+        try:
+            state_path = Path(state_file)
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+            state_path.write_text(
+                json.dumps(payload, ensure_ascii=True) + "\n",
+                encoding="utf-8",
+            )
+        except Exception:
+            pass
+    try:
+        sys.stderr.write("[clang-worker] " + json.dumps(payload) + "\n")
+        sys.stderr.flush()
+    except Exception:
+        pass
+
+
+def _scan_header_rule_3_1_1(
+    header: Path, clang_args: List[str]
+) -> List[Violation]:
+    violations: List[Violation] = []
+    idx = clang.cindex.Index.create()
+    tu = idx.parse(
+        str(header),
+        args=clang_args,
+        options=clang.cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD,
+    )
+
+    header_resolved = header.resolve()
+    for cursor in tu.cursor.walk_preorder():
+        try:
+            loc = cursor.location
+            if not loc.file:
+                continue
+            if Path(loc.file.name).resolve() != header_resolved:
+                continue
+            parent = cursor.semantic_parent
+            if not parent or parent.kind not in (
+                clang.cindex.CursorKind.TRANSLATION_UNIT,
+                clang.cindex.CursorKind.NAMESPACE,
+            ):
+                continue
+
+            if (
+                cursor.kind == clang.cindex.CursorKind.FUNCTION_DECL
+                and cursor.is_definition()
+            ):
+                token_text = {t.spelling for t in cursor.get_tokens()}
+                if "inline" in token_text or "constexpr" in token_text:
+                    continue
+                if cursor.storage_class in (
+                    clang.cindex.StorageClass.STATIC,
+                    clang.cindex.StorageClass.EXTERN,
+                ):
+                    continue
+                violations.append(
+                    Violation(
+                        "Rule 3-1-1",
+                        "Header contains a non-inline function definition that may violate ODR when included in multiple translation units.",
+                        header,
+                        int(loc.line),
+                        detector="header-clang-heuristic",
+                        trigger=cursor.spelling or "",
+                    )
+                )
+            elif (
+                cursor.kind == clang.cindex.CursorKind.VAR_DECL
+                and cursor.is_definition()
+            ):
+                token_text = {t.spelling for t in cursor.get_tokens()}
+                if {"inline", "constexpr", "constinit"} & token_text:
+                    continue
+                if cursor.storage_class in (
+                    clang.cindex.StorageClass.STATIC,
+                    clang.cindex.StorageClass.EXTERN,
+                ):
+                    continue
+                violations.append(
+                    Violation(
+                        "Rule 3-1-1",
+                        "Header contains a namespace-scope object definition that may violate ODR when included in multiple translation units.",
+                        header,
+                        int(loc.line),
+                        detector="header-clang-heuristic",
+                        trigger=cursor.spelling or "",
+                    )
+                )
+        except Exception:
+            continue
+    return violations
+
+
 def main() -> int:
     try:
         # Emit Python stack traces on fatal signals (e.g. SIGILL/SIGSEGV)
         # to make libclang worker crashes diagnosable in stderr/debug logs.
+        # Contract: worker returns JSON with a versioned envelope so the main
+        # process can merge TU facts and violations without inspecting libclang.
         faulthandler.enable(all_threads=True)
         payload = json.loads(sys.stdin.read() or "{}")
+        mode = str(payload.get("mode", "tu"))
         source_file = Path(cast(str, payload["source_file"]))
+        _emit_worker_status(
+            stage="worker-started",
+            source_file=source_file,
+            mode=mode,
+        )
         raw_clang_args = payload.get("clang_args", [])
         clang_args = (
             [str(arg) for arg in raw_clang_args]
@@ -137,13 +272,47 @@ def main() -> int:
             )
             if resolved_libclang is not None:
                 clang.cindex.Config.set_library_file(str(resolved_libclang))
+            _emit_worker_status(
+                stage="libclang-configured",
+                source_file=source_file,
+                mode=mode,
+                extra={"libclang_path": str(resolved_libclang or "")},
+            )
         except Exception:
             pass
+
+        if mode == "header_rule_3_1_1":
+            _emit_worker_status(
+                stage="header-scan",
+                source_file=source_file,
+                mode=mode,
+            )
+            violations = _scan_header_rule_3_1_1(source_file, clang_args)
+            sys.stdout.write(
+                json.dumps(
+                    {
+                        "contract_version": CLANG_WORKER_CONTRACT_VERSION,
+                        "mode": mode,
+                        "violations": _serialize_violations(violations),
+                    }
+                )
+            )
+            return 0
 
         db = WorkerCrossTUDatabase()
         index = clang.cindex.Index.create()
         options = clang.cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD
+        _emit_worker_status(
+            stage="parse-tu",
+            source_file=source_file,
+            mode=mode,
+        )
         tu = index.parse(str(source_file), args=clang_args, options=options)
+        _emit_worker_status(
+            stage="parsed-tu",
+            source_file=source_file,
+            mode=mode,
+        )
         parse_only = os.environ.get("EXODUS_CLANG_PARSE_ONLY", "").strip() in {
             "1",
             "true",
@@ -152,25 +321,36 @@ def main() -> int:
         if parse_only:
             violations = []
         else:
+            _emit_worker_status(
+                stage="analyze-ast",
+                source_file=source_file,
+                mode=mode,
+            )
             violations = analyze_clang_ast(tu, source_file, db, config)
         out = {
-            "violations": [
-                {
-                    "rule": v.rule,
-                    "message": v.message,
-                    "file": str(v.file) if v.file else "",
-                    "line": int(v.line),
-                    "detector": v.detector,
-                    "trigger": getattr(v, "trigger", "")
-                    or v._derived_trigger(),
-                }
-                for v in violations
-            ]
+            "contract_version": CLANG_WORKER_CONTRACT_VERSION,
+            "mode": mode,
+            "violations": _serialize_violations(violations),
         }
         out.update(db.to_json())
+        _emit_worker_status(
+            stage="worker-finished",
+            source_file=source_file,
+            mode=mode,
+            extra={"violations": len(violations)},
+        )
         sys.stdout.write(json.dumps(out))
         return 0
     except Exception as exc:
+        try:
+            _emit_worker_status(
+                stage="worker-exception",
+                source_file=source_file,
+                mode=mode,
+                detail=f"{type(exc).__name__}: {exc}",
+            )
+        except Exception:
+            pass
         sys.stderr.write(f"{type(exc).__name__}: {exc}\n")
         return 2
 

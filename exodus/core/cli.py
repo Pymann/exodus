@@ -14,6 +14,7 @@ from exodus.tools.deps.deps import DepsTool
 from exodus.tools.extract.extract import ExtractTool
 from exodus.tools.pkg.package_manager import PackageManager
 from exodus.tools.sbom.sbom import SbomTool
+from exodus.tools.aiml_diagram import AimlDiagramTool
 from exodus.core.logger import configure_logging
 
 
@@ -165,6 +166,18 @@ def main() -> None:
             "e.g. --single-rules 8.4 17.3 or --single-rules 8.4,17.3"
         ),
     )
+    analyze_parser.add_argument(
+        "--skip-heuristic",
+        nargs="+",
+        default=None,
+        metavar="NAME",
+        help=(
+            "Skip selected analysis pipelines. Supported names: "
+            "tree-sitter, clang, regex, header-scan, cross-tu, project-config. "
+            "Note: skipping clang also disables cross-tu automatically. "
+            "Aliases: treesitter, ts, crosstu, config."
+        ),
+    )
 
     # Command: deps
     deps_parser = subparsers.add_parser("deps", help="Manage dependencies")
@@ -220,6 +233,54 @@ def main() -> None:
             "Generate SBOMs for all JSON files in the current directory "
             "that declare the Exodus project schema"
         ),
+    )
+
+    aiml_diagram_parser = subparsers.add_parser(
+        "aiml-diagram",
+        help="Generate Mermaid or PlantUML diagrams from AIML projects",
+    )
+    aiml_diagram_parser.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Project root to scan (default: current directory)",
+    )
+    aiml_diagram_parser.add_argument(
+        "--config",
+        default="exodus.json",
+        metavar="FILE",
+        help="Config file to use for AIML source discovery (default: exodus.json)",
+    )
+    aiml_diagram_parser.add_argument(
+        "--all",
+        action="store_true",
+        help=(
+            "Use all JSON files in the target directory that declare "
+            "the Exodus project schema"
+        ),
+    )
+    aiml_diagram_parser.add_argument(
+        "--entry",
+        action="append",
+        default=[],
+        help="Extra AIML entry file to include (can be passed multiple times)",
+    )
+    aiml_diagram_parser.add_argument(
+        "--format",
+        choices=["mermaid", "plantuml"],
+        default="mermaid",
+        help="Diagram output format (default: mermaid)",
+    )
+    aiml_diagram_parser.add_argument(
+        "--diagram",
+        choices=["state", "usecase", "both"],
+        default="both",
+        help="Diagram type to render (default: both)",
+    )
+    aiml_diagram_parser.add_argument(
+        "--output",
+        default=None,
+        help="Optional output file path; stdout is used when omitted",
     )
 
     # Command: pkg
@@ -503,6 +564,9 @@ def main() -> None:
         sys.exit(tool.run())
     elif args.command == "sbom":
         tool = SbomTool(args)
+        sys.exit(tool.run())
+    elif args.command == "aiml-diagram":
+        tool = AimlDiagramTool(args)
         sys.exit(tool.run())
     elif args.command == "pkg":
         tool = PackageManager(args)

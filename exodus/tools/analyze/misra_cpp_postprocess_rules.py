@@ -8,6 +8,15 @@ from clang.cindex import CursorKind, TypeKind
 from exodus.tools.analyze.misra_rules import Violation
 
 
+def _is_internalish_linkage(linkage: Any) -> bool:
+    if linkage is None:
+        return False
+    name = getattr(linkage, "name", str(linkage))
+    if not name:
+        return False
+    return name in {"INTERNAL", "UNIQUE_EXTERNAL", "NO_LINKAGE"}
+
+
 def _has_executable_statement(func_cursor: clang.cindex.Cursor) -> bool:
     for c in func_cursor.get_children():
         if c.kind != CursorKind.COMPOUND_STMT:
@@ -262,8 +271,11 @@ def apply_cpp_postprocess_rules(
             continue
         if name.startswith("operator") or name.startswith("~"):
             continue
-        # Accept both internal and external linkage for project examples;
-        # this keeps rule coverage aligned with MISRA sample suites.
+        linkage = cpp_function_linkage.get(defined_func.hash)
+        # This heuristic is TU-local. Restrict it to functions whose call graph
+        # can realistically be observed within the same translation unit.
+        if not _is_internalish_linkage(linkage):
+            continue
         if name not in cpp_called_functions:
             violations.append(
                 Violation(

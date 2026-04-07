@@ -30,6 +30,17 @@ def _env_int(var_name: str, default: int) -> int:
         return default
 
 
+def _env_bool(var_name: str, default: bool) -> bool:
+    raw = os.environ.get(var_name, "").strip().lower()
+    if not raw:
+        return default
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    return default
+
+
 class CompilerConfig(BaseModel):
     """Configuration for a C/C++ compiler."""
 
@@ -158,6 +169,50 @@ class ProjectConfig(BaseModel):
             "Defaults from EXODUS_CLANG_NODE_LIMIT, otherwise 50000."
         ),
     )
+    clang_worker_timeout_sec: int = Field(
+        default_factory=lambda: _env_int("EXODUS_CLANG_WORKER_TIMEOUT_SEC", 30),
+        description=(
+            "Maximum runtime in seconds for one clang analysis worker subprocess. "
+            "Defaults from EXODUS_CLANG_WORKER_TIMEOUT_SEC, otherwise 30."
+        ),
+    )
+    clang_worker_parallelism: int = Field(
+        default_factory=lambda: _env_int(
+            "EXODUS_CLANG_WORKER_PARALLELISM", 4
+        ),
+        description=(
+            "Maximum number of concurrent clang worker subprocesses. "
+            "Defaults from EXODUS_CLANG_WORKER_PARALLELISM, otherwise 4."
+        ),
+    )
+    clang_parse_only_on_timeout: bool = Field(
+        default_factory=lambda: _env_bool(
+            "EXODUS_CLANG_PARSE_ONLY_ON_TIMEOUT", True
+        ),
+        description=(
+            "Retry a timed-out clang worker once in parse-only mode to keep "
+            "cross-TU facts while skipping AST heuristic checks for that file."
+        ),
+    )
+    clang_parse_only_on_crash: bool = Field(
+        default_factory=lambda: _env_bool(
+            "EXODUS_CLANG_PARSE_ONLY_ON_CRASH", True
+        ),
+        description=(
+            "Retry a crashed clang worker once in parse-only mode to keep "
+            "cross-TU facts while skipping AST heuristic checks for that file."
+        ),
+    )
+    project_headers_only: bool = Field(
+        default_factory=lambda: _env_bool(
+            "EXODUS_PROJECT_HEADERS_ONLY", True
+        ),
+        description=(
+            "Restrict C++ header scanning to project-local headers reachable "
+            "from the configured source files. Defaults from "
+            "EXODUS_PROJECT_HEADERS_ONLY, otherwise true."
+        ),
+    )
 
     source_root: Path = Path(".")
     build_root: Path = Path("out")
@@ -169,10 +224,22 @@ class ProjectConfig(BaseModel):
     sources: List[str] = Field(
         default_factory=list, description="Source file patterns (globs)"
     )
+    src_pattern_for_headers: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Optional glob patterns that limit which project headers are scanned "
+            "during analyze. If unset, Exodus derives header globs from the "
+            "configured source patterns by replacing source suffixes with "
+            "header suffixes."
+        ),
+    )
 
     # Build Settings
     defines: Dict[str, Optional[str]] = Field(
         default_factory=dict, description="Preprocessor definitions"
+    )
+    env: Dict[str, str] = Field(
+        default_factory=dict, description="Extra environment variables passed to compiler and linker subprocesses"
     )
     pre_compilation: Optional[Path] = Field(
         default=None, description="Script to run before compilation"

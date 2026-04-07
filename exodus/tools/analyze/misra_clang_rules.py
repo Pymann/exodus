@@ -59,6 +59,7 @@ def analyze_clang_ast(
     visited_nodes = 0
     trace_file_path = os.environ.get("EXODUS_CLANG_TRACE_FILE", "").strip()
     trace_enabled = bool(trace_file_path)
+    state_file_path = os.environ.get("EXODUS_CLANG_STATE_FILE", "").strip()
     cpp_unused_var_diag_keys: Set[Tuple[int, str]] = set()
     is_cpp_file = file_path.suffix in (".cpp", ".cc", ".cxx")
     try:
@@ -188,6 +189,36 @@ def analyze_clang_ast(
                 trigger=trigger,
             )
         )
+
+    def _write_state(
+        stage: str,
+        node: Optional[clang.cindex.Cursor] = None,
+    ) -> None:
+        if not state_file_path:
+            return
+        payload: Dict[str, Any] = {
+            "stage": stage,
+            "file": str(file_path),
+            "visited_nodes": visited_nodes,
+        }
+        if node is not None:
+            try:
+                payload["node_kind"] = str(node.kind)
+                payload["node_spelling"] = node.spelling or ""
+                payload["line"] = int(getattr(node.location, "line", 0) or 0)
+                payload["column"] = int(
+                    getattr(node.location, "column", 0) or 0
+                )
+            except Exception:
+                pass
+        try:
+            Path(state_file_path).parent.mkdir(parents=True, exist_ok=True)
+            Path(state_file_path).write_text(
+                json.dumps(payload, ensure_ascii=True) + "\n",
+                encoding="utf-8",
+            )
+        except Exception:
+            pass
 
     def has_side_effect(
         n: Optional[clang.cindex.Cursor], include_calls: bool = True
@@ -438,7 +469,36 @@ def analyze_clang_ast(
         ):
             cc = list(n.get_children())
             if cc:
-                return is_essentially_boolean(cc[-1])
+                return any(is_essentially_boolean(child) for child in cc)
+        return False
+
+    def has_explicit_bool_type(
+        n: Optional[clang.cindex.Cursor],
+    ) -> bool:
+        if not n:
+            return False
+        candidate_types = []
+        try:
+            candidate_types.append(n.type)
+        except Exception:
+            pass
+        try:
+            orig = _get_original_type(n)
+            if orig is not None:
+                candidate_types.append(orig)
+        except Exception:
+            pass
+        for candidate in candidate_types:
+            try:
+                canonical = candidate.get_canonical()
+            except Exception:
+                canonical = candidate
+            try:
+                spelling = (candidate.spelling or "").lower()
+            except Exception:
+                spelling = ""
+            if canonical.kind == TypeKind.BOOL or "bool" in spelling:
+                return True
         return False
 
     def is_invariant_literal(n: Optional[clang.cindex.Cursor]) -> bool:
@@ -966,6 +1026,26 @@ def analyze_clang_ast(
                 return c.referenced.spelling
         return ""
 
+    def _get_referenced_function_name(
+        expr: Optional[clang.cindex.Cursor],
+    ) -> str:
+        cur = unwrap_expr(expr)
+        if not cur:
+            return ""
+        if cur.kind == CursorKind.UNARY_OPERATOR:
+            children = list(cur.get_children())
+            if children:
+                cur = unwrap_expr(children[-1])
+        if (
+            cur
+            and cur.kind == CursorKind.DECL_REF_EXPR
+            and cur.referenced
+            and cur.referenced.kind
+            in (CursorKind.FUNCTION_DECL, CursorKind.CXX_METHOD)
+        ):
+            return cur.referenced.spelling or ""
+        return ""
+
     def _mark_ptr_param_mutated(
         func_hash: int, ref_cursor: clang.cindex.Cursor
     ) -> None:
@@ -1357,6 +1437,10 @@ def analyze_clang_ast(
         visited_nodes += 1
         if node_limit > 0 and visited_nodes > node_limit:
             return
+        if visited_nodes == 1:
+            _write_state("ast-walk-start", node)
+        elif visited_nodes % 250 == 0:
+            _write_state("ast-walk-progress", node)
         if trace_enabled:
             try:
                 if (
@@ -4220,7 +4304,10 @@ def analyze_clang_ast(
                             )
 
                     # Rule 14.4: The controlling expression shall have essentially Boolean type
-                    if not is_essentially_boolean(cond_node):
+                    if not (
+                        is_essentially_boolean(cond_node)
+                        or has_explicit_bool_type(cond_node)
+                    ):
                         violations.append(
                             Violation(
                                 "Rule 14.4",
@@ -4241,13 +4328,7 @@ def analyze_clang_ast(
                                 )
                             )
                     elif is_cpp_file:
-                        cond_orig = (
-                            _get_original_type(cond_node) or cond_node.type
-                        )
-                        if (
-                            cond_orig
-                            and cond_orig.get_canonical().kind != TypeKind.BOOL
-                        ):
+                        if not has_explicit_bool_type(cond_node):
                             # In C++ profile, require explicit bool type even if expression is
                             # contextually convertible to bool.
                             violations.append(
@@ -4340,6 +4421,11 @@ def analyze_clang_ast(
                     called_name = get_call_name(node)
                     if called_name:
                         cpp_called_functions.add(called_name)
+                    call_children = list(node.get_children())
+                    for arg in call_children[1:]:
+                        referenced_name = _get_referenced_function_name(arg)
+                        if referenced_name:
+                            cpp_called_functions.add(referenced_name)
 
                 # Rule 17.3 is primarily handled via clang diagnostics and fallback source
                 # scans. Avoid AST-only heuristics here because they produce many false
@@ -4913,7 +4999,10 @@ def analyze_clang_ast(
                         if (
                             is_cpp_file
                             and op_str == "!"
-                            and child_type.kind != TypeKind.BOOL
+                            and not (
+                                has_explicit_bool_type(children[0])
+                                or is_essentially_boolean(children[0])
+                            )
                         ):
                             violations.append(
                                 Violation(
@@ -5759,21 +5848,15 @@ def analyze_clang_ast(
                                     )
 
                         if is_logical:
-                            lhs_orig = _get_original_type(lhs) or lhs.type
-                            rhs_orig = _get_original_type(rhs) or rhs.type
-                            lhs_k = (
-                                lhs_orig.get_canonical().kind
-                                if lhs_orig
-                                else lhs.type.get_canonical().kind
-                            )
-                            rhs_k = (
-                                rhs_orig.get_canonical().kind
-                                if rhs_orig
-                                else rhs.type.get_canonical().kind
-                            )
-                            if (
-                                lhs_k != TypeKind.BOOL
-                                or rhs_k != TypeKind.BOOL
+                            if not (
+                                (
+                                    has_explicit_bool_type(lhs)
+                                    or is_essentially_boolean(lhs)
+                                )
+                                and (
+                                    has_explicit_bool_type(rhs)
+                                    or is_essentially_boolean(rhs)
+                                )
                             ):
                                 if is_cpp_file:
                                     violations.append(

@@ -22,6 +22,70 @@ CPP2023_ONLY_FALLBACK_RULES = {
 }
 
 
+def _strip_line_comment(line: str) -> str:
+    return line.split("//", 1)[0]
+
+
+def _count_brace_delta(line: str) -> int:
+    return line.count("{") - line.count("}")
+
+
+def _is_standalone_terminator_statement(line: str) -> bool:
+    stripped = _strip_line_comment(line).strip()
+    if not stripped:
+        return False
+    if not re.fullmatch(r"(return|throw|goto)\b[^;]*;\s*", stripped):
+        return False
+    # Avoid single-line guarded statements like `if (x) return;`.
+    if re.search(r"\b(if|else|for|while|switch|case|default|catch)\b", stripped):
+        return False
+    return True
+
+
+def _is_reachable_transition_line(line: str) -> bool:
+    stripped = _strip_line_comment(line).strip()
+    if not stripped:
+        return True
+    if stripped in {"{", "}", ";"}:
+        return True
+    if stripped.startswith(("else", "catch", "case ", "default", "#")):
+        return True
+    if stripped.endswith(":"):
+        return True
+    return False
+
+
+def _find_unreachable_statement_lines(lines: List[str]) -> List[int]:
+    unreachable: List[int] = []
+    brace_depth = 0
+    pending_terminator_depth: Optional[int] = None
+    for idx, raw in enumerate(lines, start=1):
+        code = _strip_line_comment(raw)
+        stripped = code.strip()
+        opens = code.count("{")
+        closes = code.count("}")
+        effective_depth = brace_depth - closes
+        if effective_depth < 0:
+            effective_depth = 0
+
+        if pending_terminator_depth is not None:
+            if (
+                stripped
+                and effective_depth == pending_terminator_depth
+                and not _is_reachable_transition_line(raw)
+            ):
+                unreachable.append(idx)
+            pending_terminator_depth = None
+
+        if _is_standalone_terminator_statement(raw):
+            pending_terminator_depth = effective_depth
+
+        brace_depth += opens - closes
+        if brace_depth < 0:
+            brace_depth = 0
+    return unreachable
+
+
 def run_fallback_source_scans(
     file_path: Path, is_cpp_file: bool, profile_key: Optional[str] = None
 ) -> List[Violation]:
@@ -6232,27 +6296,19 @@ def run_fallback_source_scans(
                             trigger=_spec_name,
                         )
                     )
-                # Rule 0.0.1: function shall not contain unreachable statements (simple local pattern).
-                for i in range(len(lines) - 1):
-                    cur = lines[i].split("//", 1)[0].strip()
-                    if not re.search(r"\b(return|throw|goto)\b[^;]*;", cur):
-                        continue
-                    nxt = lines[i + 1].split("//", 1)[0].strip()
-                    if (
-                        nxt
-                        and nxt not in {"{", "}", ";"}
-                        and not nxt.endswith(":")
-                    ):
-                        violations.append(
-                            Violation(
-                                "Rule 0.0.1",
-                                "A function shall not contain unreachable statements",
-                                file_path,
-                                i + 2,
-                                detector="clang-fallback-scan",
-                                trigger=nxt[:80],
-                            )
+                # Rule 0.0.1: conservative local unreachable statement detection.
+                for line_no in _find_unreachable_statement_lines(lines):
+                    trigger = _strip_line_comment(lines[line_no - 1]).strip()
+                    violations.append(
+                        Violation(
+                            "Rule 0.0.1",
+                            "A function shall not contain unreachable statements",
+                            file_path,
+                            line_no,
+                            detector="clang-fallback-scan",
+                            trigger=trigger[:80],
                         )
+                    )
                 # Rule 9.6.5: non-void function shall return a value on all paths.
                 fn_re = re.compile(
                     r"^\s*(?:inline\s+|static\s+|constexpr\s+|virtual\s+|friend\s+|extern\s+\"C\"\s+)*([A-Za-z_]\w*(?:\s*::\s*[A-Za-z_]\w*)?)\s+([A-Za-z_]\w*)\s*\([^;{}]*\)\s*\{"
@@ -6444,63 +6500,22 @@ def run_fallback_source_scans(
                                     trigger=ret_name,
                                 )
                             )
-                # Rule 0-1-1: trivial unreachable statement after return/throw/goto.
-                for i in range(len(lines) - 1):
-                    cur = lines[i].split("//", 1)[0].strip()
-                    if not re.search(r"\b(return|throw|goto)\b[^;]*;", cur):
-                        continue
-                    nxt = lines[i + 1].split("//", 1)[0].strip()
-                    if (
-                        nxt
-                        and nxt not in {"{", "}", ";"}
-                        and not nxt.endswith(":")
-                    ):
-                        violations.append(
-                            Violation(
-                                "Rule 0-1-1",
-                                "A project shall not contain unreachable code.",
-                                file_path,
-                                i + 2,
-                                trigger=nxt[:80],
-                            )
+                # Rule 0-1-1: conservative local unreachable statement detection.
+                for line_no in _find_unreachable_statement_lines(lines):
+                    trigger = _strip_line_comment(lines[line_no - 1]).strip()
+                    violations.append(
+                        Violation(
+                            "Rule 0-1-1",
+                            "A project shall not contain unreachable code.",
+                            file_path,
+                            line_no,
+                            trigger=trigger[:80],
                         )
+                    )
 
-                # Rule 8-4-3: non-void function with missing final return.
-                fn_re = re.compile(
-                    r"^\s*(?:inline\s+|static\s+|constexpr\s+|virtual\s+|friend\s+|extern\s+\"C\"\s+)*([A-Za-z_]\w*(?:\s*::\s*[A-Za-z_]\w*)?)\s+([A-Za-z_]\w*)\s*\([^;{}]*\)\s*\{"
-                )
-                for i, raw in enumerate(lines, start=1):
-                    m_fn = fn_re.match(raw.split("//", 1)[0])
-                    if not m_fn:
-                        continue
-                    ret_t = m_fn.group(1)
-                    fn_name = m_fn.group(2)
-                    if ret_t == "void":
-                        continue
-                    depth = raw.count("{") - raw.count("}")
-                    j = i
-                    body = [raw]
-                    while depth > 0 and j < len(lines):
-                        j += 1
-                        ln = lines[j - 1]
-                        body.append(ln)
-                        depth += ln.count("{") - ln.count("}")
-                    last_stmt = ""
-                    for ln in reversed(body):
-                        s = ln.split("//", 1)[0].strip()
-                        if s and s not in {"{", "}"}:
-                            last_stmt = s
-                            break
-                    if last_stmt and not last_stmt.startswith("return"):
-                        violations.append(
-                            Violation(
-                                "Rule 8-4-3",
-                                "All exit paths from a function with non-void return type shall have an explicit return statement with an expression.",
-                                file_path,
-                                i,
-                                trigger=fn_name,
-                            )
-                        )
+                # Rule 8-4-3 is intentionally not approximated here for C++.
+                # The text fallback is too noisy for branching functions; rely on
+                # clang diagnostics for trustworthy findings.
 
                 # Rule 7-1-2: pointer params read-only should be const-qualified.
                 fn_sig_re = re.compile(
