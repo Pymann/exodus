@@ -1,10 +1,12 @@
 import argparse
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from exodus.core import cli
 from exodus.models.project import EXODUS_PROJECT_SCHEMA, Project, ProjectConfig
 from exodus.tools.build.build import BuildTool
 from exodus.tools.pkg.package_manager import PackageManager
@@ -76,6 +78,24 @@ class MultiConfigCommandTests(unittest.TestCase):
 
             self.assertEqual(rc, 0)
             self.assertEqual(seen, ["alpha.json", "beta.json"])
+
+    def test_build_accepts_short_config_flag(self) -> None:
+        seen: list[str] = []
+
+        class FakeBuildTool:
+            def __init__(self, args: argparse.Namespace) -> None:
+                seen.append(args.config)
+
+            def run(self) -> int:
+                return 0
+
+        with patch.object(sys, "argv", ["exodus", "build", "-c", "custom.json"]):
+            with patch.object(cli, "BuildTool", FakeBuildTool):
+                with self.assertRaises(SystemExit) as exit_ctx:
+                    cli.main()
+
+        self.assertEqual(exit_ctx.exception.code, 0)
+        self.assertEqual(seen, ["custom.json"])
 
     def test_build_all_rejects_duplicate_project_names(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

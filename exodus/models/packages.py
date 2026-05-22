@@ -1,6 +1,6 @@
 """Package/dependency models."""
 
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -78,3 +78,45 @@ class ConanPkg(BaseModel):
         if self.user and self.channel:
             return f"{base}@{self.user}/{self.channel}"
         return base
+
+
+class GitPkg(BaseModel):
+    """Git-based package dependency.
+
+    Cloned into __exodus_cache/git/<name>/<digest>/, then optional
+    setup_commands are run inside the clone. Resolved commit SHA is
+    written back as `digest` (analog to AptPkg.digest).
+    """
+
+    name: str = Field(
+        description="Logical package name, used as primary cache key.",
+    )
+    repo: str = Field(
+        description="Git repository URL (https or ssh).",
+    )
+    ref: str = Field(
+        default="HEAD",
+        description=(
+            "Tag, branch, or commit to check out. Resolved to a commit "
+            "SHA during install and written into `digest`."
+        ),
+    )
+    setup_commands: List[List[str]] = Field(
+        default_factory=list,
+        description=(
+            "Commands to run inside the cloned directory after checkout. "
+            "Each entry is an argv list (e.g. [\"./emsdk\", \"install\", "
+            "\"latest\"]). Subprocess invocations are NOT shell-evaluated."
+        ),
+    )
+    required: bool = Field(
+        default=True,
+        description="Whether this package is required for successful build/install.",
+    )
+    digest: Optional[str] = Field(
+        default=None,
+        description=(
+            "Resolved commit SHA. Filled by `exodus pkg install`. Used as "
+            "the cache-version segment."
+        ),
+    )
