@@ -30,8 +30,13 @@ dev = [
     "mypy",
     "pre-commit",
 ]
+experiments = [
+    # Genutzt von tpx/probes/* (Resonanz-/Phasen-Modelle, Ordnungs-Lernen).
+    # Nicht von exodus selbst.
+    "numpy>=2.0",
+]
 all = [
-    "exodus[dev]",
+    "exodus[dev,experiments]",
 ]
 
 [project.urls]

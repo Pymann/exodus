@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from exodus.core.logger import get_logger
-from exodus.models.packages import AptPkg
+from exodus.models.packages import AptPkg, GitPkg
 from exodus.models.project import Project
 from exodus.tools.pkg.conan_backend import ConanBackend
 
@@ -775,48 +775,229 @@ class PackageManager:
                     "Failed to install auto-dep '%s'.", dep_name
                 )
 
+    # ─── Git package handling ─────────────────────────────────────────────
+
+    def _git_pkg_cache_dir(self, pkg: GitPkg) -> Path:
+        """Cache directory for a git package, keyed by digest or ref."""
+        version_segment = pkg.digest if pkg.digest else pkg.ref
+        return self._cache_root() / "git" / pkg.name / version_segment
+
+    def _resolve_git_sha(self, repo: str, ref: str) -> Optional[str]:
+        """Resolve a ref to a commit SHA via `git ls-remote` (no clone)."""
+        try:
+            result = subprocess.run(
+                ["git", "ls-remote", repo, ref],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except (subprocess.SubprocessError, FileNotFoundError) as exc:
+            self.logger.error("git ls-remote failed: %s", exc)
+            return None
+        if result.returncode != 0:
+            return None
+        first_line = result.stdout.strip().split("\n")[0]
+        if not first_line:
+            return None
+        sha = first_line.split()[0]
+        return sha if len(sha) == 40 else None
+
+    def _clone_git_pkg(self, pkg: GitPkg, target_dir: Path) -> Optional[str]:
+        """Clone repository into target_dir. Returns resolved commit SHA."""
+        if target_dir.exists():
+            # Already cloned — assume cache hit and read existing SHA.
+            try:
+                result = subprocess.run(
+                    ["git", "-C", str(target_dir), "rev-parse", "HEAD"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if result.returncode == 0:
+                    return result.stdout.strip()
+            except subprocess.SubprocessError:
+                pass
+            return None
+
+        target_dir.parent.mkdir(parents=True, exist_ok=True)
+        cmd = ["git", "clone", "--depth", "1"]
+        if pkg.ref and pkg.ref != "HEAD":
+            cmd.extend(["--branch", pkg.ref])
+        cmd.extend([pkg.repo, str(target_dir)])
+        self.logger.info("Cloning %s @ %s -> %s", pkg.repo, pkg.ref, target_dir)
+        result = subprocess.run(cmd, check=False)
+        if result.returncode != 0:
+            return None
+
+        sha_result = subprocess.run(
+            ["git", "-C", str(target_dir), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if sha_result.returncode != 0:
+            return None
+        return sha_result.stdout.strip()
+
+    def _run_git_setup_commands(
+        self, pkg: GitPkg, target_dir: Path
+    ) -> bool:
+        """Run each command in pkg.setup_commands inside target_dir."""
+        for cmd in pkg.setup_commands:
+            if not cmd:
+                continue
+            self.logger.info(
+                "Running setup in %s: %s", target_dir, " ".join(cmd)
+            )
+            try:
+                result = subprocess.run(cmd, cwd=str(target_dir), check=False)
+            except (subprocess.SubprocessError, FileNotFoundError) as exc:
+                self.logger.error("Setup command failed: %s", exc)
+                return False
+            if result.returncode != 0:
+                self.logger.error(
+                    "Setup command exited with %d: %s",
+                    result.returncode,
+                    " ".join(cmd),
+                )
+                return False
+        return True
+
+    def _install_git_one(self, project: Project, pkg: GitPkg) -> int:
+        """Install one git package: clone + run setup_commands."""
+        # Resolve cache target. If digest is already pinned, use it; else
+        # resolve via ls-remote.
+        if pkg.digest:
+            target_dir = self._git_pkg_cache_dir(pkg)
+        else:
+            sha = self._resolve_git_sha(pkg.repo, pkg.ref)
+            target_dir = (
+                self._cache_root() / "git" / pkg.name / (sha or pkg.ref)
+            )
+
+        actual_sha = self._clone_git_pkg(pkg, target_dir)
+        if actual_sha is None:
+            if pkg.required:
+                self.logger.error(
+                    "Failed to clone required git package %s", pkg.name
+                )
+                return 1
+            self.logger.warning(
+                "Failed to clone optional git package %s", pkg.name
+            )
+            return 0
+
+        # If we cloned to a ref-named dir (no digest available before clone),
+        # relocate to the SHA-named dir for stable cache identity.
+        if target_dir.name != actual_sha:
+            sha_dir = self._cache_root() / "git" / pkg.name / actual_sha
+            if not sha_dir.exists():
+                target_dir.rename(sha_dir)
+            else:
+                shutil.rmtree(target_dir, ignore_errors=True)
+            target_dir = sha_dir
+
+        pkg.digest = actual_sha
+
+        if pkg.setup_commands:
+            if not self._run_git_setup_commands(pkg, target_dir):
+                if pkg.required:
+                    return 1
+                return 0
+
+        # Maintain a stable `current` symlink pointing at this digest so
+        # exodus.json can reference paths without hard-coding the SHA.
+        current_link = self._cache_root() / "git" / pkg.name / "current"
+        try:
+            if current_link.is_symlink() or current_link.exists():
+                current_link.unlink()
+            current_link.symlink_to(actual_sha)
+        except OSError as exc:
+            self.logger.warning(
+                "Could not update 'current' symlink for %s: %s",
+                pkg.name,
+                exc,
+            )
+
+        self.logger.info(
+            "Installed git package %s @ %s -> %s",
+            pkg.name,
+            actual_sha[:12],
+            target_dir,
+        )
+        return 0
+
+    # ─── Combined install (apt + git) ─────────────────────────────────────
+
     def _install(
         self, project: Project, config_name: str = "exodus.json"
     ) -> int:
-        pkgs = project.config.apt_packages
-        if not pkgs:
-            self.logger.info("No apt packages configured.")
+        apt_pkgs = project.config.apt_packages
+        git_pkgs = project.config.git_packages
+        if not apt_pkgs and not git_pkgs:
+            self.logger.info("No apt or git packages configured.")
             return 0
 
-        selected: List[AptPkg] = []
-        if self.args.name:
-            wanted_name = self.args.name.strip().lower()
-            wanted_arch = (
-                self.args.arch.strip().lower() if self.args.arch else None
-            )
-            wanted_version = (
-                self.args.version.strip() if self.args.version else None
-            )
-            for pkg in pkgs:
+        wanted_name = (
+            self.args.name.strip().lower() if self.args.name else None
+        )
+        wanted_arch = (
+            self.args.arch.strip().lower()
+            if getattr(self.args, "arch", None)
+            else None
+        )
+        wanted_version = (
+            self.args.version.strip()
+            if getattr(self.args, "version", None)
+            else None
+        )
+
+        # Filter apt selection
+        if wanted_name:
+            apt_selected: List[AptPkg] = []
+            for pkg in apt_pkgs:
                 if pkg.name.lower() != wanted_name:
                     continue
                 if wanted_arch and pkg.arch.lower() != wanted_arch:
                     continue
                 if wanted_version and pkg.version != wanted_version:
                     continue
-                selected.append(pkg)
+                apt_selected.append(pkg)
         else:
-            selected = list(pkgs)
+            apt_selected = list(apt_pkgs)
 
-        if not selected:
+        # Filter git selection
+        if wanted_name:
+            git_selected: List[GitPkg] = [
+                pkg for pkg in git_pkgs if pkg.name.lower() == wanted_name
+            ]
+        else:
+            git_selected = list(git_pkgs)
+
+        if wanted_name and not apt_selected and not git_selected:
             self.logger.error(
-                "No matching apt package entries selected for install."
+                "No matching package entry selected for install (name=%s).",
+                wanted_name,
             )
             return 1
 
         failures = 0
-        seen: set[str] = set()
-        for pkg in selected:
-            rc = self._install_one(project, pkg, _seen=seen)
+
+        # apt pass
+        if apt_selected:
+            seen: set[str] = set()
+            for pkg in apt_selected:
+                rc = self._install_one(project, pkg, _seen=seen)
+                if rc != 0:
+                    failures += 1
+            self._fix_broken_symlinks(project)
+
+        # git pass
+        for git_pkg in git_selected:
+            rc = self._install_git_one(project, git_pkg)
             if rc != 0:
                 failures += 1
 
-        self._fix_broken_symlinks(project)
         project.save(project.root, config_name=config_name)
         if failures:
             self.logger.error(

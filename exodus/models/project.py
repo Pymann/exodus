@@ -8,7 +8,7 @@ import json
 from typing import Any, List, Dict, Optional, Literal
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from exodus.models.misra import MisraHeuristicsConfig
-from exodus.models.packages import AptPkg, ConanPkg
+from exodus.models.packages import AptPkg, ConanPkg, GitPkg
 
 EXODUS_PROJECT_SCHEMA = "exodus.project.config-1.0"
 
@@ -132,10 +132,25 @@ class ProjectConfig(BaseModel):
         default_factory=list,
         description="Conan package dependencies managed by the package manager.",
     )
+    git_packages: List[GitPkg] = Field(
+        default_factory=list,
+        description=(
+            "Git-cloned dependencies installed into the exodus cache. "
+            "Suited for toolchains not packaged via apt/conan, like emsdk."
+        ),
+    )
 
     # Configuration
-    output_type: Literal["executable", "static_lib", "shared_lib"] = (
+    output_type: Literal["executable", "static_lib", "shared_lib", "wasm"] = (
         "executable"
+    )
+    asset_directories: List[Path] = Field(
+        default_factory=list,
+        description=(
+            "Directories whose contents are packaged with the binary. "
+            "For output_type='wasm' these are passed to emcc as "
+            "--preload-file."
+        ),
     )
     artifact_in_cwd: bool = Field(
         default=False,

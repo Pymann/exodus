@@ -15,6 +15,8 @@ from exodus.tools.extract.extract import ExtractTool
 from exodus.tools.pkg.package_manager import PackageManager
 from exodus.tools.sbom.sbom import SbomTool
 from exodus.tools.aiml_diagram import AimlDiagramTool
+from exodus.tools.size.size import SizeTool
+from exodus.tools.gitignore import GitignoreTool
 from exodus.core.logger import configure_logging
 
 
@@ -52,6 +54,7 @@ def main() -> None:
         "--clean", action="store_true", help="Clean before building"
     )
     build_parser.add_argument(
+        "-c",
         "--config",
         default="exodus.json",
         metavar="FILE",
@@ -74,6 +77,27 @@ def main() -> None:
         help="Remove the entire build_root directory (e.g. out/).",
     )
     clean_parser.add_argument(
+        "-c",
+        "--config",
+        default="exodus.json",
+        metavar="FILE",
+        help="Config file to use (default: exodus.json)",
+    )
+
+    gitignore_parser = subparsers.add_parser(
+        "gitignore",
+        help="Create or extend .gitignore with Exodus artifacts",
+    )
+    gitignore_parser.add_argument(
+        "--all",
+        action="store_true",
+        help=(
+            "Include artifact entries for all JSON files in the current "
+            "directory that declare the Exodus project schema"
+        ),
+    )
+    gitignore_parser.add_argument(
+        "-c",
         "--config",
         default="exodus.json",
         metavar="FILE",
@@ -221,6 +245,7 @@ def main() -> None:
         help="SBOM mode to generate (default: manifest)",
     )
     sbom_parser.add_argument(
+        "-c",
         "--config",
         default="exodus.json",
         metavar="FILE",
@@ -246,6 +271,7 @@ def main() -> None:
         help="Project root to scan (default: current directory)",
     )
     aiml_diagram_parser.add_argument(
+        "-c",
         "--config",
         default="exodus.json",
         metavar="FILE",
@@ -281,6 +307,54 @@ def main() -> None:
         "--output",
         default=None,
         help="Optional output file path; stdout is used when omitted",
+    )
+
+    # Command: size
+    size_parser = subparsers.add_parser(
+        "size", help="Analyse binary size of compiled artifacts"
+    )
+    size_parser.add_argument(
+        "-c",
+        "--config",
+        default="exodus.json",
+        metavar="FILE",
+        help="Config file to use (default: exodus.json)",
+    )
+    size_parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Analyse all exodus projects in the current directory",
+    )
+    size_parser.add_argument(
+        "--top",
+        type=int,
+        default=10,
+        metavar="N",
+        help="Show top N largest symbols (default: 10)",
+    )
+    size_parser.add_argument(
+        "--sections",
+        action="store_true",
+        help="Show detailed section breakdown per object file",
+    )
+    size_parser.add_argument(
+        "--warn",
+        type=int,
+        default=0,
+        metavar="BYTES",
+        help="Warn if any object file exceeds this size in bytes",
+    )
+    size_parser.add_argument(
+        "--save",
+        default=None,
+        metavar="FILE",
+        help="Save current sizes as JSON snapshot for later diff",
+    )
+    size_parser.add_argument(
+        "--diff",
+        default=None,
+        metavar="FILE",
+        help="Compare current sizes against a saved snapshot",
     )
 
     # Command: pkg
@@ -544,6 +618,9 @@ def main() -> None:
 
         tool = CleanTool(args)
         tool.run()
+    elif args.command == "gitignore":
+        tool = GitignoreTool(args)
+        sys.exit(tool.run())
     elif args.command == "init":
         # from ..tools.init import InitTool
 
@@ -567,6 +644,9 @@ def main() -> None:
         sys.exit(tool.run())
     elif args.command == "aiml-diagram":
         tool = AimlDiagramTool(args)
+        sys.exit(tool.run())
+    elif args.command == "size":
+        tool = SizeTool(args)
         sys.exit(tool.run())
     elif args.command == "pkg":
         tool = PackageManager(args)
