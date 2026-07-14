@@ -6,10 +6,13 @@ build/
 
 # Build artifacts
 __exodus_cache/
+__aiml_cache/
 out/
 
 # IDE / Claude
 .claude/
+.mypy_cache
+.pytest_cache
 
 # Local scratch files
 fix_indent.py
