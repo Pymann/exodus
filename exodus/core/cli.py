@@ -17,6 +17,7 @@ from exodus.tools.sbom.sbom import SbomTool
 from exodus.tools.aiml_diagram import AimlDiagramTool
 from exodus.tools.size.size import SizeTool
 from exodus.tools.gitignore import GitignoreTool
+from exodus.tools.image.image import ImageTool
 from exodus.core.logger import configure_logging
 
 
@@ -174,12 +175,18 @@ def main() -> None:
     analyze_parser.add_argument(
         "--no-clang",
         action="store_true",
-        help="Disable clang-based analysis and run tree-sitter-only (stability fallback).",
+        help=(
+            "Disable clang-based analysis and run tree-sitter-only (stability"
+            " fallback)."
+        ),
     )
     analyze_parser.add_argument(
         "--debug-clang",
         action="store_true",
-        help="Write per-file clang invocation diagnostics to out/analyze/<project>/clang_debug.jsonl.",
+        help=(
+            "Write per-file clang invocation diagnostics to"
+            " out/analyze/<project>/clang_debug.jsonl."
+        ),
     )
     analyze_parser.add_argument(
         "--single-rules",
@@ -196,10 +203,10 @@ def main() -> None:
         default=None,
         metavar="NAME",
         help=(
-            "Skip selected analysis pipelines. Supported names: "
-            "tree-sitter, clang, regex, header-scan, cross-tu, project-config. "
-            "Note: skipping clang also disables cross-tu automatically. "
-            "Aliases: treesitter, ts, crosstu, config."
+            "Skip selected analysis pipelines. Supported names: tree-sitter,"
+            " clang, regex, header-scan, cross-tu, project-config. Note:"
+            " skipping clang also disables cross-tu automatically. Aliases:"
+            " treesitter, ts, crosstu, config."
         ),
     )
 
@@ -275,7 +282,10 @@ def main() -> None:
         "--config",
         default="exodus.json",
         metavar="FILE",
-        help="Config file to use for AIML source discovery (default: exodus.json)",
+        help=(
+            "Config file to use for AIML source discovery (default:"
+            " exodus.json)"
+        ),
     )
     aiml_diagram_parser.add_argument(
         "--all",
@@ -355,6 +365,148 @@ def main() -> None:
         default=None,
         metavar="FILE",
         help="Compare current sizes against a saved snapshot",
+    )
+
+    image_parser = subparsers.add_parser(
+        "image", help="Edit or derive image assets"
+    )
+    image_subparsers = image_parser.add_subparsers(
+        dest="action", required=True, help="Image actions"
+    )
+
+    image_slice = image_subparsers.add_parser(
+        "slice",
+        help="Slice a PNG image into square tiles",
+    )
+    image_slice.add_argument(
+        "input_png",
+        nargs="+",
+        metavar="INPUT_PNG",
+        help="One or more source PNG files",
+    )
+    image_slice.add_argument(
+        "-o",
+        "--output-dir",
+        default=None,
+        help="Directory for the generated tiles (default: <input_name>_tiles)",
+    )
+    image_slice.add_argument(
+        "--tile-size",
+        type=int,
+        default=128,
+        help="Tile width and height in pixels (default: 128)",
+    )
+    image_slice.add_argument(
+        "--pad-edge",
+        action="store_true",
+        help="Pad partial edge tiles to full size instead of skipping them",
+    )
+
+    image_scale = image_subparsers.add_parser(
+        "scale",
+        help="Scale one or more PNG images to 128x128",
+    )
+    image_scale.add_argument(
+        "input_png",
+        nargs="+",
+        metavar="INPUT_PNG",
+        help="One or more source PNG files",
+    )
+    image_scale.add_argument(
+        "-o",
+        "--output",
+        default=None,
+        help=(
+            "Output PNG path for a single input, or output directory for"
+            " multiple inputs (default: <input_name>_128.png)"
+        ),
+    )
+    image_scale.add_argument(
+        "--mode",
+        choices=["stretch", "contain", "cover"],
+        default="contain",
+        help=(
+            "Scaling mode: stretch resizes directly, contain keeps aspect"
+            " ratio with transparent padding, cover fills 128x128 and crops"
+            " overflow"
+        ),
+    )
+    image_scale.add_argument(
+        "--resample",
+        choices=["nearest", "bilinear", "bicubic", "lanczos"],
+        default="lanczos",
+        help="Resampling filter to use (default: lanczos)",
+    )
+    image_scale.add_argument(
+        "--background",
+        default="transparent",
+        help=(
+            "Background for padded areas in contain mode. Use transparent or "
+            "RGBA like 255,255,255,255"
+        ),
+    )
+
+    image_pink_to_alpha = image_subparsers.add_parser(
+        "pink-to-alpha",
+        help="Convert a keyed pink or magenta PNG background to transparency",
+    )
+    image_pink_to_alpha.add_argument(
+        "input_png",
+        nargs="+",
+        metavar="INPUT_PNG",
+        help="One or more source PNG files",
+    )
+    image_pink_to_alpha.add_argument(
+        "-o",
+        "--output",
+        default=None,
+        help=(
+            "Output PNG path for a single input, or output directory for"
+            " multiple inputs (default: overwrite input or keep original"
+            " filename in output dir)"
+        ),
+    )
+    image_pink_to_alpha.add_argument(
+        "--color",
+        default="255,0,255",
+        help=(
+            "Key color as R,G,B or 6-digit hex like #ff00ff (default:"
+            " 255,0,255)"
+        ),
+    )
+    image_pink_to_alpha.add_argument(
+        "--tolerance",
+        type=int,
+        default=20,
+        help="Allowed per-channel distance from the key color (default: 20)",
+    )
+    image_pink_to_alpha.add_argument(
+        "--soft-edge",
+        type=int,
+        default=0,
+        help="Optional fade range beyond tolerance; 0 means hard cutoff",
+    )
+
+    image_border_color = image_subparsers.add_parser(
+        "border-color",
+        help="Print a representative border color for one or more PNG files",
+    )
+    image_border_color.add_argument(
+        "input_png",
+        nargs="+",
+        metavar="INPUT_PNG",
+        help="One or more source PNG files",
+    )
+
+    image_snake_case = image_subparsers.add_parser(
+        "snake-case",
+        help="Rename one or more PNG files in place to snake_case names",
+    )
+    image_snake_case.add_argument(
+        "input_png",
+        nargs="+",
+        metavar="INPUT_PNG",
+        help="One or more source PNG files",
     )
 
     # Command: pkg
@@ -457,7 +609,8 @@ def main() -> None:
         "--version",
         default=None,
         help=(
-            "Exact package version. If omitted, highest available version is used."
+            "Exact package version. If omitted, highest available version is"
+            " used."
         ),
     )
     pkg_install_apt.add_argument(
@@ -540,14 +693,16 @@ def main() -> None:
     pkg_install_conan_cfg.add_argument(
         "--force",
         action="store_true",
-        help="Force reinstall by clearing the cached Conan package folder first",
+        help=(
+            "Force reinstall by clearing the cached Conan package folder first"
+        ),
     )
     pkg_install_conan_cfg.add_argument(
         "--all",
         action="store_true",
         help=(
-            "Install Conan packages for all JSON files in the current directory "
-            "that declare the Exodus project schema"
+            "Install Conan packages for all JSON files in the current"
+            " directory that declare the Exodus project schema"
         ),
     )
 
@@ -593,7 +748,9 @@ def main() -> None:
     pkg_install_conan.add_argument(
         "--force",
         action="store_true",
-        help="Force reinstall by clearing the cached Conan package folder first",
+        help=(
+            "Force reinstall by clearing the cached Conan package folder first"
+        ),
     )
 
     args = parser.parse_args()
@@ -647,6 +804,9 @@ def main() -> None:
         sys.exit(tool.run())
     elif args.command == "size":
         tool = SizeTool(args)
+        sys.exit(tool.run())
+    elif args.command == "image":
+        tool = ImageTool(args)
         sys.exit(tool.run())
     elif args.command == "pkg":
         tool = PackageManager(args)

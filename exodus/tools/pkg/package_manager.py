@@ -11,7 +11,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 from exodus.core.logger import get_logger
 from exodus.models.packages import AptPkg, GitPkg
@@ -40,20 +40,18 @@ _DEP_NAME_RE = re.compile(r"^([a-z0-9][a-z0-9.+\-]*)", re.IGNORECASE)
 
 # These fundamental packages are always present on any Linux system.
 # Adding them to the cache would shadow system libraries unnecessarily.
-_SKIP_AUTO_DEP_NAMES: frozenset[str] = frozenset(
-    {
-        "libc6",
-        "libgcc-s1",
-        "libgcc1",
-        "libstdc++6",
-        "libm6",
-        "multiarch-support",
-        "gcc-12-base",
-        "gcc-13-base",
-        "gcc-14-base",
-        "libc-bin",
-    }
-)
+_SKIP_AUTO_DEP_NAMES: frozenset[str] = frozenset({
+    "libc6",
+    "libgcc-s1",
+    "libgcc1",
+    "libstdc++6",
+    "libm6",
+    "multiarch-support",
+    "gcc-12-base",
+    "gcc-13-base",
+    "gcc-14-base",
+    "libc-bin",
+})
 
 
 class PackageManager:
@@ -525,7 +523,8 @@ class PackageManager:
         )
 
         self.logger.info(
-            "Installed %s:%s=%s -> %s (search_paths +%d, linker.library_paths +%d)",
+            "Installed %s:%s=%s -> %s (search_paths +%d, linker.library_paths"
+            " +%d)",
             pkg.name,
             pkg.arch,
             pkg.version,
@@ -655,8 +654,9 @@ class PackageManager:
                         rehomed += 1
                 elif is_broken:
                     self.logger.error(
-                        "Removing unresolvable broken symlink %s -> %s "
-                        "(runtime package not in cache — add it to exodus.json)",
+                        "Removing unresolvable broken symlink %s -> %s"
+                        " (runtime package not in cache — add it to"
+                        " exodus.json)",
                         p,
                         os.readlink(p),
                     )
@@ -671,8 +671,8 @@ class PackageManager:
             )
         if unresolved:
             self.logger.error(
-                "%d broken symlink(s) removed — "
-                "add the missing runtime package(s) to exodus.json and re-run install.",
+                "%d broken symlink(s) removed — add the missing runtime"
+                " package(s) to exodus.json and re-run install.",
                 unresolved,
             )
 
@@ -824,8 +824,10 @@ class PackageManager:
         if pkg.ref and pkg.ref != "HEAD":
             cmd.extend(["--branch", pkg.ref])
         cmd.extend([pkg.repo, str(target_dir)])
-        self.logger.info("Cloning %s @ %s -> %s", pkg.repo, pkg.ref, target_dir)
-        result = subprocess.run(cmd, check=False)
+        self.logger.info(
+            "Cloning %s @ %s -> %s", pkg.repo, pkg.ref, target_dir
+        )
+        result = subprocess.run(cmd, check=False, text=True)
         if result.returncode != 0:
             return None
 
@@ -839,9 +841,7 @@ class PackageManager:
             return None
         return sha_result.stdout.strip()
 
-    def _run_git_setup_commands(
-        self, pkg: GitPkg, target_dir: Path
-    ) -> bool:
+    def _run_git_setup_commands(self, pkg: GitPkg, target_dir: Path) -> bool:
         """Run each command in pkg.setup_commands inside target_dir."""
         for cmd in pkg.setup_commands:
             if not cmd:
@@ -1046,7 +1046,7 @@ class PackageManager:
             return 0
 
         project = self._load_project()
-        handlers = {
+        handlers: Dict[str, Callable[[], int]] = {
             "list": lambda: self._list(project),
             "add": lambda: self._add(project),
             "remove": lambda: self._remove(project),

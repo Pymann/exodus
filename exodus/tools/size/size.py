@@ -17,10 +17,9 @@ Usage:
 import argparse
 import json
 import subprocess
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, TypedDict, cast
 
 from exodus.core.logger import get_logger
 from exodus.models.project import Project, ProjectConfig
@@ -31,9 +30,11 @@ logger = get_logger(__name__)
 
 # ── Data models ──────────────────────────────────────────────────────────
 
+
 @dataclass
 class SectionInfo:
     """One section (text/data/bss) of a single .o or binary."""
+
     text: int = 0
     data: int = 0
     bss: int = 0
@@ -46,6 +47,7 @@ class SectionInfo:
 @dataclass
 class SymbolInfo:
     """A single symbol from nm output."""
+
     name: str
     size: int
     kind: str  # T/t/D/d/B/b/R/r/...
@@ -55,6 +57,7 @@ class SymbolInfo:
 @dataclass
 class ObjectReport:
     """Size report for one object file."""
+
     path: Path
     sections: SectionInfo = field(default_factory=SectionInfo)
     symbols: List[SymbolInfo] = field(default_factory=list)
@@ -63,6 +66,7 @@ class ObjectReport:
 @dataclass
 class ProjectReport:
     """Aggregated report for one exodus project."""
+
     name: str
     config_file: str
     objects: List[ObjectReport] = field(default_factory=list)
@@ -80,10 +84,13 @@ class ProjectReport:
 
 # ── System tool wrappers ────────────────────────────────────────────────
 
+
 def _run_cmd(cmd: List[str]) -> Optional[str]:
     """Run a command and return stdout, or None on failure."""
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        r = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=30, check=False
+        )
         if r.returncode == 0:
             return r.stdout
         return None
@@ -161,8 +168,10 @@ def get_symbols(file_path: Path) -> List[SymbolInfo]:
 
 # ── Project discovery ───────────────────────────────────────────────────
 
+
 def find_project_objects(
-    project_root: Path, config: ProjectConfig,
+    project_root: Path,
+    config: ProjectConfig,
 ) -> Tuple[List[Path], Optional[Path]]:
     """Find all .o files and the linked binary for a project config."""
     safe_name = config.name.replace("/", "_").replace("\\", "_")
@@ -197,8 +206,10 @@ def find_project_objects(
 
 # ── Report generation ───────────────────────────────────────────────────
 
+
 def build_report(
-    project_root: Path, config: ProjectConfig,
+    project_root: Path,
+    config: ProjectConfig,
 ) -> ProjectReport:
     """Build a full size report for one project."""
     obj_files, binary_path = find_project_objects(project_root, config)
@@ -226,6 +237,7 @@ def build_report(
 
 
 # ── Formatting helpers ──────────────────────────────────────────────────
+
 
 def fmt_size(n: int) -> str:
     """Format byte count as human-readable."""
@@ -268,25 +280,33 @@ def print_report(
 
     # ── Summary ──
     print(f"\n  Objects:  {len(report.objects)}")
-    print(f"  Total:    {fmt_size(total.total)}"
-          f"  (text: {fmt_size(total.text)}"
-          f"  data: {fmt_size(total.data)}"
-          f"  bss: {fmt_size(total.bss)})")
+    print(
+        f"  Total:    {fmt_size(total.total)}"
+        f"  (text: {fmt_size(total.text)}"
+        f"  data: {fmt_size(total.data)}"
+        f"  bss: {fmt_size(total.bss)})"
+    )
 
     if report.binary:
         bs = report.binary.sections
-        print(f"  Binary:   {fmt_size(bs.total)}"
-              f"  (text: {fmt_size(bs.text)}"
-              f"  data: {fmt_size(bs.data)}"
-              f"  bss: {fmt_size(bs.bss)})"
-              f"  [{report.binary.path.name}]")
+        print(
+            f"  Binary:   {fmt_size(bs.total)}"
+            f"  (text: {fmt_size(bs.text)}"
+            f"  data: {fmt_size(bs.data)}"
+            f"  bss: {fmt_size(bs.bss)})"
+            f"  [{report.binary.path.name}]"
+        )
 
     # ── Per-object table ──
     if report.objects:
-        print(f"\n  {'Object File':<45} {'text':>8} {'data':>8} {'bss':>8} {'total':>10}")
+        print(
+            f"\n  {'Object File':<45} {'text':>8} {'data':>8} {'bss':>8} {'total':>10}"
+        )
         print(f"  {'-' * 45} {'-' * 8} {'-' * 8} {'-' * 8} {'-' * 10}")
 
-        sorted_objs = sorted(report.objects, key=lambda o: o.sections.total, reverse=True)
+        sorted_objs = sorted(
+            report.objects, key=lambda o: o.sections.total, reverse=True
+        )
         for obj in sorted_objs:
             s = obj.sections
             name = obj.path.name
@@ -296,12 +316,16 @@ def print_report(
             if warn_threshold > 0 and s.total > warn_threshold:
                 flag = " ⚠"
                 warnings += 1
-            print(f"  {name:<45} {s.text:>8} {s.data:>8} {s.bss:>8} {fmt_size(s.total):>10}{flag}")
+            print(
+                f"  {name:<45} {s.text:>8} {s.data:>8} {s.bss:>8} {fmt_size(s.total):>10}{flag}"
+            )
 
     # ── Section breakdown ──
     if show_sections and report.objects:
-        print(f"\n  Section Details:")
-        for obj in sorted(report.objects, key=lambda o: o.sections.total, reverse=True)[:10]:
+        print("\n  Section Details:")
+        for obj in sorted(
+            report.objects, key=lambda o: o.sections.total, reverse=True
+        )[:10]:
             print(f"\n    {obj.path.name}:")
             out = _run_cmd(["size", "-A", str(obj.path)])
             if out:
@@ -330,21 +354,44 @@ def print_report(
             sname = sym.name
             if len(sname) > 60:
                 sname = sname[:57] + "..."
-            print(f"  {fmt_size(sym.size):>10}  {kind_desc:<14} {source:<30} {sname}")
+            print(
+                f"  {fmt_size(sym.size):>10} "
+                f" {kind_desc:<14} {source:<30} {sname}"
+            )
 
     # ── Warnings ──
     if warn_threshold > 0 and warnings > 0:
-        print(f"\n  WARNING: {warnings} object(s) exceed threshold of {fmt_size(warn_threshold)}")
+        print(
+            f"\n  WARNING: {warnings} object(s) exceed threshold of"
+            f" {fmt_size(warn_threshold)}"
+        )
 
     print()
     return warnings
 
 
+class SnapshotObject(TypedDict):
+    text: int
+    data: int
+    bss: int
+
+
+class SnapshotBinary(SnapshotObject):
+    name: str
+
+
+class SnapshotData(TypedDict):
+    name: str
+    objects: Dict[str, SnapshotObject]
+    binary: Optional[SnapshotBinary]
+
+
 # ── Snapshot (diff) support ─────────────────────────────────────────────
+
 
 def save_snapshot(report: ProjectReport, path: Path) -> None:
     """Save size data as JSON snapshot for later comparison."""
-    data = {
+    data: SnapshotData = {
         "name": report.name,
         "objects": {},
         "binary": None,
@@ -352,13 +399,17 @@ def save_snapshot(report: ProjectReport, path: Path) -> None:
     for obj in report.objects:
         s = obj.sections
         data["objects"][obj.path.name] = {
-            "text": s.text, "data": s.data, "bss": s.bss,
+            "text": s.text,
+            "data": s.data,
+            "bss": s.bss,
         }
     if report.binary:
         bs = report.binary.sections
         data["binary"] = {
             "name": report.binary.path.name,
-            "text": bs.text, "data": bs.data, "bss": bs.bss,
+            "text": bs.text,
+            "data": bs.data,
+            "bss": bs.bss,
         }
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
@@ -366,24 +417,28 @@ def save_snapshot(report: ProjectReport, path: Path) -> None:
     print(f"  Snapshot saved: {path}")
 
 
-def load_snapshot(path: Path) -> Optional[dict]:
+def load_snapshot(path: Path) -> Optional[SnapshotData]:
     """Load a previously saved snapshot."""
     if not path.exists():
         print(f"  Error: Snapshot not found: {path}")
         return None
     with open(path) as f:
-        return json.load(f)
+        return cast(SnapshotData, json.load(f))
 
 
-def print_diff(report: ProjectReport, snapshot: dict) -> None:
+def print_diff(report: ProjectReport, snapshot: SnapshotData) -> None:
     """Print diff between current report and saved snapshot."""
-    print(f"\n  {'Object File':<40} {'old':>10} {'new':>10} {'diff':>10} {'%':>7}")
+    print(
+        f"\n  {'Object File':<40} {'old':>10} {'new':>10} {'diff':>10} {'%':>7}"
+    )
     print(f"  {'-' * 40} {'-' * 10} {'-' * 10} {'-' * 10} {'-' * 7}")
 
     old_objs = snapshot.get("objects", {})
     seen = set()
 
-    for obj in sorted(report.objects, key=lambda o: o.sections.total, reverse=True):
+    for obj in sorted(
+        report.objects, key=lambda o: o.sections.total, reverse=True
+    ):
         name = obj.path.name
         seen.add(name)
         new_total = obj.sections.total
@@ -393,32 +448,41 @@ def print_diff(report: ProjectReport, snapshot: dict) -> None:
             diff = new_total - old_total
             pct = (diff / old_total * 100) if old_total > 0 else 0
             sign = "+" if diff > 0 else ""
-            print(f"  {name:<40} {fmt_size(old_total):>10} {fmt_size(new_total):>10}"
-                  f" {sign}{fmt_size(abs(diff)):>9} {sign}{pct:>6.1f}%")
+            print(
+                f"  {name:<40} {fmt_size(old_total):>10} {fmt_size(new_total):>10}"
+                f" {sign}{fmt_size(abs(diff)):>9} {sign}{pct:>6.1f}%"
+            )
         else:
-            print(f"  {name:<40} {'(new)':>10} {fmt_size(new_total):>10}"
-                  f" {'+' + fmt_size(new_total):>10} {'':>7}")
+            print(
+                f"  {name:<40} {'(new)':>10} {fmt_size(new_total):>10}"
+                f" {'+' + fmt_size(new_total):>10} {'':>7}"
+            )
 
     # Objects that were removed
     for name, old_data in old_objs.items():
         if name not in seen:
             old_total = old_data["text"] + old_data["data"] + old_data["bss"]
-            print(f"  {name:<40} {fmt_size(old_total):>10} {'(removed)':>10}"
-                  f" {'-' + fmt_size(old_total):>10} {'-100.0%':>7}")
+            print(
+                f"  {name:<40} {fmt_size(old_total):>10} {'(removed)':>10}"
+                f" {'-' + fmt_size(old_total):>10} {'-100.0%':>7}"
+            )
 
     # Binary diff
-    if report.binary and snapshot.get("binary"):
-        old_b = snapshot["binary"]
+    old_b = snapshot.get("binary")
+    if report.binary and old_b is not None:
         old_bt = old_b["text"] + old_b["data"] + old_b["bss"]
         new_bt = report.binary.sections.total
         diff = new_bt - old_bt
         pct = (diff / old_bt * 100) if old_bt > 0 else 0
         sign = "+" if diff > 0 else ""
-        print(f"\n  Binary: {fmt_size(old_bt)} -> {fmt_size(new_bt)}"
-              f"  ({sign}{fmt_size(abs(diff))}, {sign}{pct:.1f}%)")
+        print(
+            f"\n  Binary: {fmt_size(old_bt)} -> {fmt_size(new_bt)}"
+            f"  ({sign}{fmt_size(abs(diff))}, {sign}{pct:.1f}%)"
+        )
 
 
 # ── Main Tool class ─────────────────────────────────────────────────────
+
 
 class SizeTool:
     """exodus size — Binary size analysis."""
@@ -475,7 +539,10 @@ class SizeTool:
             report = build_report(project_root, config)
 
             if not report.objects and not report.binary:
-                print(f"\n  {config.name}: No build artifacts found. Run 'exodus build' first.")
+                print(
+                    f"\n  {config.name}: No build artifacts found. Run 'exodus"
+                    " build' first."
+                )
                 continue
 
             # Diff mode

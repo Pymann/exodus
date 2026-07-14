@@ -12,6 +12,9 @@ from exodus.models.project import Project, ProjectConfig
 
 _SECTION_HEADER = "# Exodus artifacts"
 _DEFAULT_ENTRIES = ("out/", "__exodus_cache/")
+# Directories that are only ignored when they actually exist in the project
+# root (derived assets, raw asset sources, backups, scratch).
+_CONDITIONAL_DIRS = ("assets", "raw", "bak", "tmp")
 
 
 class GitignoreTool:
@@ -42,6 +45,16 @@ class GitignoreTool:
             output_name = f"{config.name}.wasm"
         return output_name
 
+    @staticmethod
+    def _uses_aiml(config: ProjectConfig) -> bool:
+        """True if the config compiles AIML sources (→ emits __aiml_cache/)."""
+        for source in getattr(config, "sources", None) or []:
+            if str(source).endswith(".aiml"):
+                return True
+        compiler = getattr(config, "compiler", None)
+        compiler_name = getattr(compiler, "name", "") if compiler else ""
+        return Path(str(compiler_name)).name.startswith("aiml")
+
     @classmethod
     def collect_entries(
         cls, configs: Iterable[ProjectConfig] | None = None
@@ -51,6 +64,9 @@ class GitignoreTool:
             build_root = cls._normalize_dir_entry(config.build_root)
             if build_root and build_root not in entries:
                 entries.append(build_root)
+
+            if cls._uses_aiml(config) and "__aiml_cache/" not in entries:
+                entries.append("__aiml_cache/")
 
             if config.artifact_in_cwd:
                 artifact_name = cls._linked_output_name(config)
@@ -69,19 +85,27 @@ class GitignoreTool:
         if getattr(self.args, "all", False):
             config_names = Project.discover_config_names(Path.cwd())
             for config_name in config_names:
-                configs.append(Project.load(Path.cwd(), config_name=config_name).config)
+                configs.append(
+                    Project.load(Path.cwd(), config_name=config_name).config
+                )
             return configs
 
-        config_name = getattr(self.args, "config", "exodus.json") or "exodus.json"
+        config_name = (
+            getattr(self.args, "config", "exodus.json") or "exodus.json"
+        )
         config_path = Path.cwd() / config_name
         if not config_path.exists():
             return []
         return [Project.load(Path.cwd(), config_name=config_name).config]
 
-    def _render_gitignore(self, current_text: str, entries: Iterable[str]) -> str:
+    def _render_gitignore(
+        self, current_text: str, entries: Iterable[str]
+    ) -> str:
         existing_lines = current_text.splitlines()
         existing = set(existing_lines)
-        additions = [entry for entry in entries if entry and entry not in existing]
+        additions = [
+            entry for entry in entries if entry and entry not in existing
+        ]
         if not additions:
             return current_text
 
@@ -97,6 +121,11 @@ class GitignoreTool:
         try:
             configs = self._load_configs()
             entries = self.collect_entries(configs)
+            for dir_name in _CONDITIONAL_DIRS:
+                if (Path.cwd() / dir_name).is_dir():
+                    entry = f"{dir_name}/"
+                    if entry not in entries:
+                        entries.append(entry)
             gitignore_path = Path.cwd() / ".gitignore"
             current_text = (
                 gitignore_path.read_text(encoding="utf-8")
