@@ -40,9 +40,9 @@ except ImportError:
     HAS_TREE_SITTER = False
 
 try:
-    import clang.cindex
+    import clang.cindex as clang_cindex
 
-    HAS_CLANG = True
+    HAS_CLANG = clang_cindex is not None
 except ImportError:
     HAS_CLANG = False
 
@@ -210,14 +210,12 @@ class CrossTUDatabase:
     ) -> None:
         with self.lock:
             record = self._ensure_ext_record(name)
-            record["signatures"].append(
-                {
-                    "file": str(file_path),
-                    "line": int(line),
-                    "ret": return_type,
-                    "params": params,
-                }
-            )
+            record["signatures"].append({
+                "file": str(file_path),
+                "line": int(line),
+                "ret": return_type,
+                "params": params,
+            })
 
     def analyze(self) -> List[Violation]:
         violations: List[Violation] = []
@@ -270,7 +268,8 @@ class CrossTUDatabase:
                         violations.append(
                             Violation(
                                 "Rule 5.6",
-                                f"Typedef name '{name}' is not unique across the project.",
+                                f"Typedef name '{name}' is not unique across"
+                                " the project.",
                                 Path(d[0]) if d[0] else None,
                                 d[1],
                                 trigger=name,
@@ -284,7 +283,8 @@ class CrossTUDatabase:
                         violations.append(
                             Violation(
                                 "Rule 5.6",
-                                f"Typedef name '{name}' is not unique across the project.",
+                                f"Typedef name '{name}' is not unique across"
+                                " the project.",
                                 Path(d[0]) if d[0] else None,
                                 d[1],
                                 trigger=name,
@@ -301,7 +301,8 @@ class CrossTUDatabase:
                         violations.append(
                             Violation(
                                 "Rule 5.7",
-                                f"Tag name '{name}' is reused for another entity.",
+                                f"Tag name '{name}' is reused for another"
+                                " entity.",
                                 Path(d[0]) if d[0] else None,
                                 d[1],
                                 trigger=name,
@@ -316,7 +317,8 @@ class CrossTUDatabase:
                         violations.append(
                             Violation(
                                 "Rule 5.5",
-                                f"Identifier '{name}' is not distinct from a macro name.",
+                                f"Identifier '{name}' is not distinct from a"
+                                " macro name.",
                                 Path(d[0]) if d[0] else None,
                                 d[1],
                                 trigger=name,
@@ -327,7 +329,8 @@ class CrossTUDatabase:
                         violations.append(
                             Violation(
                                 "Rule 5.4",
-                                f"Macro identifier '{name}' is not distinct (multiple definitions).",
+                                f"Macro identifier '{name}' is not distinct"
+                                " (multiple definitions).",
                                 Path(d[0]) if d[0] else None,
                                 d[1],
                                 trigger=name,
@@ -346,7 +349,9 @@ class CrossTUDatabase:
                             violations.append(
                                 Violation(
                                     "Rule 5.8",
-                                    f"Identifier '{name}' with external linkage has a cross-namespace collision.",
+                                    f"Identifier '{name}' with external"
+                                    " linkage has a cross-namespace"
+                                    " collision.",
                                     Path(d[0]) if d[0] else None,
                                     d[1],
                                     trigger=name,
@@ -365,7 +370,8 @@ class CrossTUDatabase:
                         violations.append(
                             Violation(
                                 "Rule 5.9",
-                                f"Identifier '{name}' with internal linkage is not unique.",
+                                f"Identifier '{name}' with internal linkage is"
+                                " not unique.",
                                 Path(d[0]) if d[0] else None,
                                 d[1],
                                 trigger=name,
@@ -377,7 +383,8 @@ class CrossTUDatabase:
                             violations.append(
                                 Violation(
                                     "Rule 5.9",
-                                    f"Identifier '{name}' with internal linkage collides with local scope.",
+                                    f"Identifier '{name}' with internal"
+                                    " linkage collides with local scope.",
                                     Path(d[0]) if d[0] else None,
                                     d[1],
                                     trigger=name,
@@ -391,7 +398,8 @@ class CrossTUDatabase:
         ext_object_items = list(self.ext_objects.items())
         last_log_at = time.monotonic()
         self.logger.info(
-            "Cross-TU phase: external object/signature pass starting (%d symbols)",
+            "Cross-TU phase: external object/signature pass starting (%d"
+            " symbols)",
             len(ext_object_items),
         )
         for index, (name, data) in enumerate(ext_object_items, start=1):
@@ -423,10 +431,10 @@ class CrossTUDatabase:
                         violations.append(
                             Violation(
                                 "Rule 8.3",
-                                (
-                                    f"Declaration of '{name}' has mismatched return type or type qualifiers "
-                                    f"across files ('{first_sig['ret']}' vs '{other_sig['ret']}')."
-                                ),
+                                f"Declaration of '{name}' has mismatched"
+                                " return type or type qualifiers across files"
+                                f" ('{first_sig['ret']}' vs"
+                                f" '{other_sig['ret']}').",
                                 Path(other_sig["file"]),
                                 other_sig["line"],
                                 trigger=name,
@@ -436,10 +444,9 @@ class CrossTUDatabase:
                             violations.append(
                                 Violation(
                                     "Rule 3-2-1",
-                                    (
-                                        f"Declarations of '{name}' are not type-compatible "
-                                        f"('{first_sig['ret']}' vs '{other_sig['ret']}')."
-                                    ),
+                                    f"Declarations of '{name}' are not"
+                                    f" type-compatible ('{first_sig['ret']}'"
+                                    f" vs '{other_sig['ret']}').",
                                     Path(other_sig["file"]),
                                     other_sig["line"],
                                     trigger=name,
@@ -448,10 +455,9 @@ class CrossTUDatabase:
                             violations.append(
                                 Violation(
                                     "Rule 3-9-1",
-                                    (
-                                        f"Type tokens for '{name}' are not identical "
-                                        f"('{first_sig['ret']}' vs '{other_sig['ret']}')."
-                                    ),
+                                    f"Type tokens for '{name}' are not"
+                                    f" identical ('{first_sig['ret']}' vs"
+                                    f" '{other_sig['ret']}').",
                                     Path(other_sig["file"]),
                                     other_sig["line"],
                                     trigger=name,
@@ -462,7 +468,8 @@ class CrossTUDatabase:
                         violations.append(
                             Violation(
                                 "Rule 8.3",
-                                f"Declaration of '{name}' has mismatched parameter count.",
+                                f"Declaration of '{name}' has mismatched"
+                                " parameter count.",
                                 Path(other_sig["file"]),
                                 other_sig["line"],
                                 trigger=name,
@@ -472,7 +479,8 @@ class CrossTUDatabase:
                             violations.append(
                                 Violation(
                                     "Rule 3-2-1",
-                                    f"Declarations of '{name}' have incompatible parameter lists.",
+                                    f"Declarations of '{name}' have"
+                                    " incompatible parameter lists.",
                                     Path(other_sig["file"]),
                                     other_sig["line"],
                                     trigger=name,
@@ -481,7 +489,8 @@ class CrossTUDatabase:
                             violations.append(
                                 Violation(
                                     "Rule 3-9-1",
-                                    f"Type tokens for '{name}' parameter list are not identical.",
+                                    f"Type tokens for '{name}' parameter list"
+                                    " are not identical.",
                                     Path(other_sig["file"]),
                                     other_sig["line"],
                                     trigger=name,
@@ -495,10 +504,9 @@ class CrossTUDatabase:
                                 violations.append(
                                     Violation(
                                         "Rule 8.3",
-                                        (
-                                            f"Declaration of '{name}' has mismatched parameter types "
-                                            f"('{p1[0]}' vs '{p2[0]}')."
-                                        ),
+                                        f"Declaration of '{name}' has"
+                                        " mismatched parameter types"
+                                        f" ('{p1[0]}' vs '{p2[0]}').",
                                         Path(other_sig["file"]),
                                         other_sig["line"],
                                         trigger=name,
@@ -508,10 +516,9 @@ class CrossTUDatabase:
                                     violations.append(
                                         Violation(
                                             "Rule 3-2-1",
-                                            (
-                                                f"Declarations of '{name}' are not type-compatible "
-                                                f"('{p1[0]}' vs '{p2[0]}')."
-                                            ),
+                                            f"Declarations of '{name}' are not"
+                                            f" type-compatible ('{p1[0]}' vs"
+                                            f" '{p2[0]}').",
                                             Path(other_sig["file"]),
                                             other_sig["line"],
                                             trigger=name,
@@ -520,10 +527,9 @@ class CrossTUDatabase:
                                     violations.append(
                                         Violation(
                                             "Rule 3-9-1",
-                                            (
-                                                f"Type tokens for '{name}' parameter are not identical "
-                                                f"('{p1[0]}' vs '{p2[0]}')."
-                                            ),
+                                            f"Type tokens for '{name}'"
+                                            " parameter are not identical"
+                                            f" ('{p1[0]}' vs '{p2[0]}').",
                                             Path(other_sig["file"]),
                                             other_sig["line"],
                                             trigger=name,
@@ -533,10 +539,9 @@ class CrossTUDatabase:
                                 violations.append(
                                     Violation(
                                         "Rule 8.3",
-                                        (
-                                            f"Declaration of '{name}' has mismatched parameter names "
-                                            f"('{p1[1]}' vs '{p2[1]}')."
-                                        ),
+                                        f"Declaration of '{name}' has"
+                                        " mismatched parameter names"
+                                        f" ('{p1[1]}' vs '{p2[1]}').",
                                         Path(other_sig["file"]),
                                         other_sig["line"],
                                         trigger=name,
@@ -559,10 +564,8 @@ class CrossTUDatabase:
                 violations.append(
                     Violation(
                         "Rule 8.5",
-                        (
-                            f"External object/function '{name}' is declared in multiple "
-                            "distinct files."
-                        ),
+                        f"External object/function '{name}' is declared in"
+                        " multiple distinct files.",
                         sample_file,
                         0,
                         trigger=name,
@@ -572,10 +575,8 @@ class CrossTUDatabase:
                     violations.append(
                         Violation(
                             "Rule 3-2-3",
-                            (
-                                f"'{name}' is declared more than once within a translation unit "
-                                "or project declaration set."
-                            ),
+                            f"'{name}' is declared more than once within a"
+                            " translation unit or project declaration set.",
                             sample_file,
                             0,
                             trigger=name,
@@ -586,7 +587,8 @@ class CrossTUDatabase:
                 violations.append(
                     Violation(
                         "Rule 8.6",
-                        f"External identifier '{name}' has multiple definitions.",
+                        f"External identifier '{name}' has multiple"
+                        " definitions.",
                         sample_file,
                         0,
                         trigger=name,
@@ -596,7 +598,8 @@ class CrossTUDatabase:
                 violations.append(
                     Violation(
                         "Rule 8.6",
-                        f"External identifier '{name}' is used but never defined.",
+                        f"External identifier '{name}' is used but never"
+                        " defined.",
                         sample_file,
                         0,
                         trigger=name,
@@ -609,7 +612,8 @@ class CrossTUDatabase:
                     violations.append(
                         Violation(
                             "Rule 17.3",
-                            f"A function shall not be declared implicitly: '{name}'",
+                            "A function shall not be declared implicitly:"
+                            f" '{name}'",
                             sample_file,
                             0,
                             trigger=name,
@@ -629,10 +633,9 @@ class CrossTUDatabase:
                         violations.append(
                             Violation(
                                 "Rule 8.7",
-                                (
-                                    f"External identifier '{name}' is referenced in only one "
-                                    "translation unit and should be static."
-                                ),
+                                f"External identifier '{name}' is referenced"
+                                " in only one translation unit and should be"
+                                " static.",
                                 sample_file,
                                 0,
                                 trigger=name,
@@ -648,9 +651,8 @@ class CrossTUDatabase:
                     violations.append(
                         Violation(
                             "Rule 3-3-1",
-                            (
-                                f"External identifier '{name}' is not declared in a header file."
-                            ),
+                            f"External identifier '{name}' is not declared in"
+                            " a header file.",
                             sample_file,
                             0,
                             trigger=name,
@@ -658,7 +660,8 @@ class CrossTUDatabase:
                     )
 
         self.logger.info(
-            "Cross-TU phase: external object/signature pass finished (%d symbols, %d violations)",
+            "Cross-TU phase: external object/signature pass finished (%d"
+            " symbols, %d violations)",
             len(ext_object_items),
             len(violations),
         )
@@ -694,10 +697,8 @@ class AnalyzeTool:
         self.single_rules: Optional[Set[str]] = self._parse_single_rules(
             getattr(args, "single_rules", None)
         )
-        self.skipped_heuristics: Set[str] = (
-            self._parse_skip_heuristics(
-                getattr(args, "skip_heuristic", None)
-            )
+        self.skipped_heuristics: Set[str] = self._parse_skip_heuristics(
+            getattr(args, "skip_heuristic", None)
         )
         if "clang" in self.skipped_heuristics:
             self.skipped_heuristics.add("cross-tu")
@@ -709,9 +710,11 @@ class AnalyzeTool:
         self.lock = threading.Lock()
         self.global_db = CrossTUDatabase()
         self.enable_tree_sitter = self._heuristic_enabled("tree-sitter")
-        self.enable_clang = HAS_CLANG and not bool(
-            getattr(args, "no_clang", False)
-        ) and self._heuristic_enabled("clang")
+        self.enable_clang = (
+            HAS_CLANG
+            and not bool(getattr(args, "no_clang", False))
+            and self._heuristic_enabled("clang")
+        )
         self.clang_compile_db_args: Dict[str, List[str]] = {}
         self.clang_compile_db_path: Optional[Path] = None
         self.debug_clang = bool(getattr(args, "debug_clang", False))
@@ -750,7 +753,9 @@ class AnalyzeTool:
                 normalized = piece.strip().lower()
                 if not normalized:
                     continue
-                selected.add(cls._HEURISTIC_ALIASES.get(normalized, normalized))
+                selected.add(
+                    cls._HEURISTIC_ALIASES.get(normalized, normalized)
+                )
         return selected
 
     def _heuristic_enabled(self, name: str) -> bool:
@@ -1476,7 +1481,8 @@ class AnalyzeTool:
                 )
             except subprocess.TimeoutExpired:
                 note = (
-                    f"worker timeout after {worker_timeout_sec}s (parse-only retry)"
+                    f"worker timeout after {worker_timeout_sec}s (parse-only"
+                    " retry)"
                     if parse_only
                     else f"worker timeout after {worker_timeout_sec}s"
                 )
@@ -1511,7 +1517,8 @@ class AnalyzeTool:
             state_summary = self._format_last_worker_state(state_file)
             if not config.clang_parse_only_on_timeout:
                 self.logger.error(
-                    "Clang worker timed out for %s after %ss; parse-only retry disabled by project config. Crash artifact: %s%s",
+                    "Clang worker timed out for %s after %ss; parse-only retry"
+                    " disabled by project config. Crash artifact: %s%s",
                     self._display_path(source_file),
                     worker_timeout_sec,
                     self._display_path(crash_file),
@@ -1532,7 +1539,8 @@ class AnalyzeTool:
                 )
                 return
             self.logger.warning(
-                "Clang worker timed out for %s after %ss. Retrying once in parse-only mode.",
+                "Clang worker timed out for %s after %ss. Retrying once in"
+                " parse-only mode.",
                 self._display_path(source_file),
                 worker_timeout_sec,
             )
@@ -1541,7 +1549,10 @@ class AnalyzeTool:
                 args=args,
                 status="retry-parse-only-timeout",
                 mode="tu",
-                note=f"worker timed out after {worker_timeout_sec}s; retry with EXODUS_CLANG_PARSE_ONLY=1",
+                note=(
+                    f"worker timed out after {worker_timeout_sec}s; retry with"
+                    " EXODUS_CLANG_PARSE_ONLY=1"
+                ),
                 worker_timeout_sec=worker_timeout_sec,
                 libclang_path=libclang_path,
                 parse_only=True,
@@ -1551,7 +1562,8 @@ class AnalyzeTool:
             if retry_proc is None:
                 state_summary = self._format_last_worker_state(state_file)
                 self.logger.error(
-                    "Clang worker timed out again for %s after %ss; skipping clang for this file. Crash artifact: %s%s",
+                    "Clang worker timed out again for %s after %ss; skipping"
+                    " clang for this file. Crash artifact: %s%s",
                     self._display_path(source_file),
                     worker_timeout_sec,
                     self._display_path(crash_file),
@@ -1578,14 +1590,18 @@ class AnalyzeTool:
                     status="ok-parse-only-timeout",
                     mode="tu",
                     exit_code=retry_proc.returncode,
-                    note="parse-only retry succeeded after worker timeout; AST heuristic violations skipped for this file",
+                    note=(
+                        "parse-only retry succeeded after worker timeout; AST"
+                        " heuristic violations skipped for this file"
+                    ),
                     worker_timeout_sec=worker_timeout_sec,
                     libclang_path=libclang_path,
                     parse_only=True,
                     trace_file=str(trace_file) if trace_file else "",
                 )
                 self.logger.warning(
-                    "Clang parse-only fallback succeeded for %s after timeout; AST heuristic checks skipped for this file.",
+                    "Clang parse-only fallback succeeded for %s after timeout;"
+                    " AST heuristic checks skipped for this file.",
                     self._display_path(source_file),
                 )
                 return
@@ -1601,7 +1617,10 @@ class AnalyzeTool:
                     mode="tu",
                     exit_code=proc.returncode,
                     stderr=(proc.stderr or "").strip(),
-                    note="worker crashed; parse-only retry disabled by project config",
+                    note=(
+                        "worker crashed; parse-only retry disabled by project"
+                        " config"
+                    ),
                     worker_timeout_sec=worker_timeout_sec,
                     libclang_path=libclang_path,
                     trace_file=str(trace_file) if trace_file else "",
@@ -1616,12 +1635,16 @@ class AnalyzeTool:
                     parse_only=False,
                     exit_code=proc.returncode,
                     stderr=(proc.stderr or "").strip(),
-                    note="worker crashed; parse-only retry disabled by project config",
+                    note=(
+                        "worker crashed; parse-only retry disabled by project"
+                        " config"
+                    ),
                     state_file=state_file,
                     trace_file=trace_file,
                 )
                 self.logger.error(
-                    "Clang worker crashed for %s (exit=%d); parse-only retry disabled by project config. Crash artifact: %s%s",
+                    "Clang worker crashed for %s (exit=%d); parse-only retry"
+                    " disabled by project config. Crash artifact: %s%s",
                     self._display_path(source_file),
                     proc.returncode,
                     self._display_path(crash_file),
@@ -1629,7 +1652,8 @@ class AnalyzeTool:
                 )
                 return
             self.logger.warning(
-                "Clang worker crashed for %s (exit=%d). Retrying once in parse-only mode.",
+                "Clang worker crashed for %s (exit=%d). Retrying once in"
+                " parse-only mode.",
                 self._display_path(source_file),
                 proc.returncode,
             )
@@ -1670,14 +1694,18 @@ class AnalyzeTool:
                     status="ok-parse-only",
                     mode="tu",
                     exit_code=retry_proc.returncode,
-                    note="parse-only retry succeeded; AST heuristic violations skipped for this file",
+                    note=(
+                        "parse-only retry succeeded; AST heuristic violations"
+                        " skipped for this file"
+                    ),
                     worker_timeout_sec=worker_timeout_sec,
                     libclang_path=libclang_path,
                     parse_only=True,
                     trace_file=str(trace_file) if trace_file else "",
                 )
                 self.logger.warning(
-                    "Clang parse-only fallback succeeded for %s; AST heuristic checks skipped for this file.",
+                    "Clang parse-only fallback succeeded for %s; AST heuristic"
+                    " checks skipped for this file.",
                     self._display_path(source_file),
                 )
                 return
@@ -1711,7 +1739,8 @@ class AnalyzeTool:
                 trace_file=trace_file,
             )
             self.logger.error(
-                "Clang worker failed for %s (exit=%d). Crash artifact: %s stderr: %s%s",
+                "Clang worker failed for %s (exit=%d). Crash artifact: %s"
+                " stderr: %s%s",
                 self._display_path(source_file),
                 proc.returncode,
                 self._display_path(crash_file),
@@ -1749,7 +1778,8 @@ class AnalyzeTool:
                 trace_file=trace_file,
             )
             self.logger.error(
-                "Failed to parse clang worker response for %s: %s. Crash artifact: %s%s",
+                "Failed to parse clang worker response for %s: %s. Crash"
+                " artifact: %s%s",
                 self._display_path(source_file),
                 exc,
                 self._display_path(crash_file),
@@ -1761,7 +1791,8 @@ class AnalyzeTool:
             CLANG_WORKER_CONTRACT_VERSION,
         }:
             self.logger.warning(
-                "Clang worker returned unsupported contract version %s for %s.",
+                "Clang worker returned unsupported contract version %s"
+                " for %s.",
                 response.get("contract_version"),
                 self._display_path(source_file),
             )
@@ -1832,9 +1863,7 @@ class AnalyzeTool:
             return
 
         language = lang_c if is_c else lang_cpp
-        self.logger.info(
-            "Analyzing file: %s", self._display_path(source_file)
-        )
+        self.logger.info("Analyzing file: %s", self._display_path(source_file))
 
         if HAS_TREE_SITTER and self.enable_tree_sitter:
             try:
@@ -1901,7 +1930,8 @@ class AnalyzeTool:
                 libclang_path=libclang_path,
             )
             self.logger.error(
-                "Header clang worker timed out for %s after %ss; skipping clang header scan for this file.",
+                "Header clang worker timed out for %s after %ss; skipping"
+                " clang header scan for this file.",
                 self._display_path(header),
                 worker_timeout_sec,
             )
@@ -1935,7 +1965,8 @@ class AnalyzeTool:
             CLANG_WORKER_CONTRACT_VERSION,
         }:
             self.logger.warning(
-                "Header clang worker returned unsupported contract version %s for %s.",
+                "Header clang worker returned unsupported contract version %s"
+                " for %s.",
                 data.get("contract_version"),
                 self._display_path(header),
             )
@@ -1972,7 +2003,8 @@ class AnalyzeTool:
         max_workers = self._get_clang_worker_max_workers(config)
         worker_count = max_workers if max_workers is not None else "auto"
         self.logger.info(
-            "Starting header clang worker phase over %d headers with workers=%s.",
+            "Starting header clang worker phase over %d headers with"
+            " workers=%s.",
             len(headers),
             worker_count,
         )
@@ -2025,10 +2057,12 @@ class AnalyzeTool:
                         state_file, _ = self._clang_worker_support_files(
                             header, config
                         )
-                        future_states[future] = self._clang_worker_state_update(
-                            header,
-                            state_file,
-                            future_states[future],
+                        future_states[future] = (
+                            self._clang_worker_state_update(
+                                header,
+                                state_file,
+                                future_states[future],
+                            )
                         )
         finally:
             executor.shutdown(wait=True)
@@ -2052,42 +2086,37 @@ class AnalyzeTool:
             config.compiler.additional_compilers
             and not config.compiler.common_interface_defined
         ):
-            self._record_violations(
-                [
-                    Violation(
-                        "Rule 1-0-2",
-                        (
-                            "Multiple compilers are configured without a defined common interface "
-                            f"(primary='{config.compiler.name}', additional={config.compiler.additional_compilers})."
-                        ),
-                        None,
-                        0,
-                        detector="project-config",
-                        trigger=config.compiler.name,
-                    )
-                ]
-            )
+            self._record_violations([
+                Violation(
+                    "Rule 1-0-2",
+                    "Multiple compilers are configured without a defined"
+                    f" common interface (primary='{config.compiler.name}',"
+                    f" additional={config.compiler.additional_compilers}).",
+                    None,
+                    0,
+                    detector="project-config",
+                    trigger=config.compiler.name,
+                )
+            ])
 
         # Rule 1-0-3: Integer division behavior shall be documented and taken into account.
         if (
             self._heuristic_enabled("project-config")
             and not config.compiler.integer_division_documented
         ):
-            self._record_violations(
-                [
-                    Violation(
-                        "Rule 1-0-3",
-                        (
-                            "Integer division behavior for the selected compiler/toolchain is not documented "
-                            "in project configuration (compiler.integer_division_documented=false)."
-                        ),
-                        None,
-                        0,
-                        detector="project-config",
-                        trigger=config.compiler.name,
-                    )
-                ]
-            )
+            self._record_violations([
+                Violation(
+                    "Rule 1-0-3",
+                    "Integer division behavior for the selected"
+                    " compiler/toolchain is not documented in project"
+                    " configuration"
+                    " (compiler.integer_division_documented=false).",
+                    None,
+                    0,
+                    detector="project-config",
+                    trigger=config.compiler.name,
+                )
+            ])
 
         if not self._heuristic_enabled("header-scan"):
             return
@@ -2117,7 +2146,8 @@ class AnalyzeTool:
             self.enable_clang and HAS_CLANG and need_rule_3_1_1
         )
         self.logger.info(
-            "Starting header scan phase over %d headers (rule 3-1-1 via %s, project_headers_only=%s).",
+            "Starting header scan phase over %d headers (rule 3-1-1 via %s,"
+            " project_headers_only=%s).",
             len(header_files),
             "clang worker" if use_clang_for_3_1_1 else "regex heuristic",
             project_headers_only,
@@ -2181,7 +2211,9 @@ class AnalyzeTool:
                     header_violations.append(
                         Violation(
                             "Rule 3-1-1",
-                            "Header contains a non-inline function definition that may violate ODR when included in multiple translation units.",
+                            "Header contains a non-inline function definition"
+                            " that may violate ODR when included in multiple"
+                            " translation units.",
                             header,
                             line_no,
                             detector="header-scan-heuristic",
@@ -2197,7 +2229,9 @@ class AnalyzeTool:
                     header_violations.append(
                         Violation(
                             "Rule 3-1-1",
-                            "Header contains a namespace-scope object definition that may violate ODR when included in multiple translation units.",
+                            "Header contains a namespace-scope object"
+                            " definition that may violate ODR when included in"
+                            " multiple translation units.",
                             header,
                             line_no,
                             detector="header-scan-heuristic",
@@ -2208,7 +2242,8 @@ class AnalyzeTool:
                     header_violations.append(
                         Violation(
                             "Rule 7-3-3",
-                            "There shall be no unnamed namespaces in header files.",
+                            "There shall be no unnamed namespaces in header"
+                            " files.",
                             header,
                             line_no,
                             detector="header-scan-heuristic",
@@ -2225,7 +2260,9 @@ class AnalyzeTool:
                     header_violations.append(
                         Violation(
                             "Rule 7-3-6",
-                            "using-directives and using-declarations shall not be used in header files outside class/function scope.",
+                            "using-directives and using-declarations shall not"
+                            " be used in header files outside class/function"
+                            " scope.",
                             header,
                             line_no,
                             detector="header-scan-heuristic",
@@ -2375,7 +2412,9 @@ class AnalyzeTool:
             if not normalized:
                 continue
             if "/" not in normalized:
-                if len(rel.parts) == 1 and fnmatch.fnmatch(rel.name, normalized):
+                if len(rel.parts) == 1 and fnmatch.fnmatch(
+                    rel.name, normalized
+                ):
                     return True
                 continue
             if fnmatch.fnmatch(rel_text, normalized):
@@ -2440,14 +2479,19 @@ class AnalyzeTool:
                 if resolved is None or resolved in seen:
                     continue
                 seen.add(resolved)
-                if resolved.suffix.lower() in header_suffixes and self._header_matches_patterns(
-                    resolved, source_root, header_patterns
+                if (
+                    resolved.suffix.lower() in header_suffixes
+                    and self._header_matches_patterns(
+                        resolved, source_root, header_patterns
+                    )
                 ):
                     discovered.append(resolved)
                     queue.append(resolved)
         return sorted(discovered)
 
-    def _collect_all_project_headers(self, config: ProjectConfig) -> List[Path]:
+    def _collect_all_project_headers(
+        self, config: ProjectConfig
+    ) -> List[Path]:
         header_suffixes = {".h", ".hh", ".hpp", ".hxx"}
         source_root = config.source_root.resolve()
         header_patterns = self._header_glob_patterns(config)
@@ -2518,7 +2562,9 @@ class AnalyzeTool:
     @staticmethod
     def _read_json_file(path: Path) -> Dict[str, Any]:
         try:
-            return json.loads(path.read_text(encoding="utf-8"))
+            return cast(
+                Dict[str, Any], json.loads(path.read_text(encoding="utf-8"))
+            )
         except Exception:
             return {}
 
@@ -2565,7 +2611,7 @@ class AnalyzeTool:
                 encoding="utf-8",
             )
         except Exception:
-            return
+            pass
 
     def _format_last_worker_state(self, state_file: Optional[Path]) -> str:
         if state_file is None:
@@ -2663,7 +2709,11 @@ class AnalyzeTool:
     def _display_path(path: Path | str) -> str:
         candidate = Path(path)
         try:
-            return candidate.resolve().relative_to(Path.cwd().resolve()).as_posix()
+            return (
+                candidate.resolve()
+                .relative_to(Path.cwd().resolve())
+                .as_posix()
+            )
         except Exception:
             return str(path)
 
@@ -2680,7 +2730,8 @@ class AnalyzeTool:
             )
             if "clang" in self.skipped_heuristics:
                 self.logger.info(
-                    "Skipping clang also disables cross-tu, because cross-TU facts are populated from clang analysis."
+                    "Skipping clang also disables cross-tu, because cross-TU"
+                    " facts are populated from clang analysis."
                 )
         if self.enable_clang and not HAS_CLANG:
             self.logger.info(
@@ -2733,16 +2784,14 @@ class AnalyzeTool:
             self.logger.error(
                 "Tree-sitter is not installed. Analysis features are disabled."
             )
-            self._record_violations(
-                [
-                    Violation(
-                        "Global",
-                        "Tree-sitter dependencies are missing.",
-                        None,
-                        trigger="tree-sitter",
-                    )
-                ]
-            )
+            self._record_violations([
+                Violation(
+                    "Global",
+                    "Tree-sitter dependencies are missing.",
+                    None,
+                    trigger="tree-sitter",
+                )
+            ])
             self.print_violations()
             return 1
 
@@ -2848,7 +2897,7 @@ class AnalyzeTool:
             clang_executor = concurrent.futures.ThreadPoolExecutor(
                 max_workers=clang_max_workers
             )
-            clang_futures = {}
+            clang_futures: Dict[concurrent.futures.Future[None], Path] = {}
             try:
                 future_states: Dict[
                     concurrent.futures.Future[None], Tuple[Path, Path]
@@ -2856,7 +2905,6 @@ class AnalyzeTool:
                 future_last_states: Dict[
                     concurrent.futures.Future[None], str
                 ] = {}
-                clang_futures = {}
                 for src in source_files:
                     is_cpp = src.suffix in CPP_EXTENSIONS
                     state_file, _ = self._clang_worker_support_files(
@@ -2925,9 +2973,10 @@ class AnalyzeTool:
             if (
                 self._heuristic_enabled("cross-tu")
                 and self.misra_profile
-                and self.misra_profile.key in {
-                "cpp2008",
-                "cpp2023",
+                and self.misra_profile.key
+                in {
+                    "cpp2008",
+                    "cpp2023",
                 }
             ):
                 has_odr_signal = any(
@@ -2938,21 +2987,22 @@ class AnalyzeTool:
                     v.rule == "Rule 3-2-2" for v in self.violations
                 )
                 if has_odr_signal and not has_odr_violation:
-                    self._record_violations(
-                        [
-                            Violation(
-                                "Rule 3-2-2",
-                                "One Definition Rule (ODR) appears to be violated based on declaration/definition inconsistencies.",
-                                None,
-                                0,
-                                detector="cross-tu-derived",
-                                trigger="ODR",
-                            )
-                        ]
-                    )
+                    self._record_violations([
+                        Violation(
+                            "Rule 3-2-2",
+                            "One Definition Rule (ODR) appears to be violated"
+                            " based on declaration/definition"
+                            " inconsistencies.",
+                            None,
+                            0,
+                            detector="cross-tu-derived",
+                            trigger="ODR",
+                        )
+                    ])
         except KeyboardInterrupt:
             self.logger.warning(
-                "Analysis interrupted by user during header scan or cross-TU phase."
+                "Analysis interrupted by user during header scan or cross-TU"
+                " phase."
             )
             return 130
         self._write_per_rule_output(project)
@@ -2989,7 +3039,8 @@ class AnalyzeTool:
             return
         if not self.violations:
             self.logger.info(
-                "Per-rule output enabled, but there are no violations to write."
+                "Per-rule output enabled, but there are no violations to"
+                " write."
             )
             return
 
@@ -3071,7 +3122,8 @@ class AnalyzeTool:
             return
         if not self.violations:
             self.logger.info(
-                "Per-file output enabled, but there are no violations to write."
+                "Per-file output enabled, but there are no violations to"
+                " write."
             )
             return
 

@@ -1,7 +1,7 @@
 # Unsupported MISRA Rules by Tree-Sitter
 
 ## Current Coverage
-At present, `exodus analyze` relies purely on `tree-sitter` for static AST matching. 
+At present, `exodus analyze` relies purely on `tree-sitter` for static AST matching.
 * **MISRA C:2012** defines **143** rules.
 * **MISRA C++:2008** defines **228** rules.
 

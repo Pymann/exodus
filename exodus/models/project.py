@@ -50,20 +50,23 @@ class CompilerConfig(BaseModel):
     flags: List[str] = Field(default_factory=list)
     additional_compilers: List[str] = Field(
         default_factory=list,
-        description="Optional list of additional compilers used for this project.",
+        description=(
+            "Optional list of additional compilers used for this project."
+        ),
     )
     common_interface_defined: bool = Field(
         default=True,
         description=(
-            "Set to false if multiple compilers are used without a defined common interface "
-            "(MISRA C++:2008 Rule 1-0-2)."
+            "Set to false if multiple compilers are used without a defined"
+            " common interface (MISRA C++:2008 Rule 1-0-2)."
         ),
     )
     integer_division_documented: bool = Field(
         default=False,
         description=(
-            "Set to true when integer division behavior of the chosen compiler/toolchain "
-            "is explicitly documented and accounted for (MISRA C++:2008 Rule 1-0-3)."
+            "Set to true when integer division behavior of the chosen"
+            " compiler/toolchain is explicitly documented and accounted for"
+            " (MISRA C++:2008 Rule 1-0-3)."
         ),
     )
 
@@ -84,7 +87,10 @@ class LinkerConfig(BaseModel):
     library_paths: List[Path] = Field(default_factory=list)
     rpath: bool = Field(
         default=True,
-        description="Auto-add -Wl,-rpath for each library_path (skips paths containing ':' which is the rpath separator)",
+        description=(
+            "Auto-add -Wl,-rpath for each library_path (skips paths containing"
+            " ':' which is the rpath separator)"
+        ),
     )
 
 
@@ -130,7 +136,9 @@ class ProjectConfig(BaseModel):
     )
     conan_packages: List[ConanPkg] = Field(
         default_factory=list,
-        description="Conan package dependencies managed by the package manager.",
+        description=(
+            "Conan package dependencies managed by the package manager."
+        ),
     )
     git_packages: List[GitPkg] = Field(
         default_factory=list,
@@ -180,21 +188,23 @@ class ProjectConfig(BaseModel):
     clang_node_limit: int = Field(
         default_factory=lambda: _env_int("EXODUS_CLANG_NODE_LIMIT", 50000),
         description=(
-            "Maximum number of AST nodes visited per translation unit during clang-based analysis. "
-            "Defaults from EXODUS_CLANG_NODE_LIMIT, otherwise 50000."
+            "Maximum number of AST nodes visited per translation unit during"
+            " clang-based analysis. Defaults from EXODUS_CLANG_NODE_LIMIT,"
+            " otherwise 50000."
         ),
     )
     clang_worker_timeout_sec: int = Field(
-        default_factory=lambda: _env_int("EXODUS_CLANG_WORKER_TIMEOUT_SEC", 30),
+        default_factory=lambda: _env_int(
+            "EXODUS_CLANG_WORKER_TIMEOUT_SEC", 30
+        ),
         description=(
-            "Maximum runtime in seconds for one clang analysis worker subprocess. "
-            "Defaults from EXODUS_CLANG_WORKER_TIMEOUT_SEC, otherwise 30."
+            "Maximum runtime in seconds for one clang analysis worker"
+            " subprocess. Defaults from EXODUS_CLANG_WORKER_TIMEOUT_SEC,"
+            " otherwise 30."
         ),
     )
     clang_worker_parallelism: int = Field(
-        default_factory=lambda: _env_int(
-            "EXODUS_CLANG_WORKER_PARALLELISM", 4
-        ),
+        default_factory=lambda: _env_int("EXODUS_CLANG_WORKER_PARALLELISM", 4),
         description=(
             "Maximum number of concurrent clang worker subprocesses. "
             "Defaults from EXODUS_CLANG_WORKER_PARALLELISM, otherwise 4."
@@ -219,9 +229,7 @@ class ProjectConfig(BaseModel):
         ),
     )
     project_headers_only: bool = Field(
-        default_factory=lambda: _env_bool(
-            "EXODUS_PROJECT_HEADERS_ONLY", True
-        ),
+        default_factory=lambda: _env_bool("EXODUS_PROJECT_HEADERS_ONLY", True),
         description=(
             "Restrict C++ header scanning to project-local headers reachable "
             "from the configured source files. Defaults from "
@@ -242,10 +250,10 @@ class ProjectConfig(BaseModel):
     src_pattern_for_headers: List[str] = Field(
         default_factory=list,
         description=(
-            "Optional glob patterns that limit which project headers are scanned "
-            "during analyze. If unset, Exodus derives header globs from the "
-            "configured source patterns by replacing source suffixes with "
-            "header suffixes."
+            "Optional glob patterns that limit which project headers are"
+            " scanned during analyze. If unset, Exodus derives header globs"
+            " from the configured source patterns by replacing source suffixes"
+            " with header suffixes."
         ),
     )
 
@@ -254,7 +262,11 @@ class ProjectConfig(BaseModel):
         default_factory=dict, description="Preprocessor definitions"
     )
     env: Dict[str, str] = Field(
-        default_factory=dict, description="Extra environment variables passed to compiler and linker subprocesses"
+        default_factory=dict,
+        description=(
+            "Extra environment variables passed to compiler and linker"
+            " subprocesses"
+        ),
     )
     pre_compilation: Optional[Path] = Field(
         default=None, description="Script to run before compilation"
@@ -300,7 +312,7 @@ class Project:
         if not isinstance(config_data, dict):
             return False
         schema_value = config_data.get("$schema", config_data.get("schema"))
-        return schema_value == EXODUS_PROJECT_SCHEMA
+        return bool(schema_value == EXODUS_PROJECT_SCHEMA)
 
     @classmethod
     def discover_config_names(cls, path: Path) -> List[str]:
