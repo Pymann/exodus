@@ -1369,7 +1369,7 @@ class AnalyzeTool:
             with self.clang_debug_file.open("a", encoding="utf-8") as fobj:
                 fobj.write(json.dumps(payload, ensure_ascii=True) + "\n")
         except Exception:
-            return
+            pass
 
     def _fallback_lang_standards(
         self, is_cpp: bool, primary_standard: str, has_user_override: bool
