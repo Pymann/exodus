@@ -71,9 +71,16 @@ class BuildTool:
             return True
 
         # 2. Check dependencies from .d file (works for C/C++ headers and any
-        #    compiler that emits Makefile-format dependency files).
+        #    compiler that emits Makefile-format dependency files).  A listed
+        #    dependency that changed OR VANISHED forces a recompile — the latter
+        #    catches renamed/removed inputs (e.g. an asset converted png→webp:
+        #    the old path recorded in the .d disappears, so the object that baked
+        #    it must be rebuilt).  Missing deps are recorded by the aiml compiler
+        #    (imports + scanned assets), so their absence is meaningful here.
         for dep in self._get_dependencies(obj_file):
-            if dep.exists() and dep.stat().st_mtime > obj_mtime:
+            if not dep.exists():
+                return True
+            if dep.stat().st_mtime > obj_mtime:
                 return True
 
         # 3. Recompile if the compiler binary itself is newer than the object.
