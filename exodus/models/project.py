@@ -104,12 +104,23 @@ class TargetArchitecture(BaseModel):
 
 
 class Dependency(BaseModel):
-    """Project dependency definition."""
+    """Project dependency definition.
+
+    With a ``url`` it is a source package that ``exodus deps install`` fetches
+    (museum's exodus repository: ``<museum>/exodus/<name>/<version>/package``,
+    a full ``…/package`` URL, or a local ``.tar.gz`` / directory) into
+    ``__exodus_cache/deps/<name>/<sha256>/`` and lists in ``aiml.packages.json``
+    for ``@name/…`` imports (aiml spec/21 §3.1).  ``digest`` pins the archive's
+    sha256; install writes it back when it was empty.
+    """
 
     name: str
     version: Optional[str] = None
     url: Optional[str] = None
-    # Add other dependency fields as needed
+    digest: Optional[str] = Field(
+        default=None,
+        description="sha256 of the package archive; filled by `exodus deps install`.",
+    )
 
 
 class ProjectConfig(BaseModel):
