@@ -106,12 +106,13 @@ class TargetArchitecture(BaseModel):
 class Dependency(BaseModel):
     """Project dependency definition.
 
-    With a ``url`` it is a source package that ``exodus deps install`` fetches
-    (museum's exodus repository: ``<museum>/exodus/<name>/<version>/package``,
-    a full ``…/package`` URL, or a local ``.tar.gz`` / directory) into
-    ``__exodus_cache/deps/<name>/<sha256>/`` and lists in ``aiml.packages.json``
-    for ``@name/…`` imports (aiml spec/21 §3.1).  ``digest`` pins the archive's
-    sha256; install writes it back when it was empty.
+    ``digest`` pins the sha256 of a source package's archive.  Planned (not
+    implemented yet): with a ``url`` — museum's exodus repository
+    (``<museum>/exodus/<name>/<version>/package``), a full ``…/package`` URL or a
+    local ``.tar.gz`` / directory — ``exodus deps install`` will fetch the package
+    into ``__exodus_cache/deps/<name>/<sha256>/``, list it in ``aiml.packages.json``
+    for ``@name/…`` imports (aiml spec/21 §3.1) and write ``digest`` back when it
+    was empty.
     """
 
     name: str
@@ -119,7 +120,7 @@ class Dependency(BaseModel):
     url: Optional[str] = None
     digest: Optional[str] = Field(
         default=None,
-        description="sha256 of the package archive; filled by `exodus deps install`.",
+        description="sha256 of the package archive (to be filled by `exodus deps install`, planned).",
     )
 
 
