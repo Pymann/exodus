@@ -107,8 +107,8 @@ class Dependency(BaseModel):
     """Project dependency definition.
 
     ``digest`` pins the sha256 of a source package's archive.  Planned (not
-    implemented yet): with a ``url`` — museum's exodus repository
-    (``<museum>/exodus/<name>/<version>/package``), a full ``…/package`` URL or a
+    implemented yet): with a ``url`` — kontor's exodus repository
+    (``<kontor>/exodus/<name>/<version>/package``), a full ``…/package`` URL or a
     local ``.tar.gz`` / directory — ``exodus deps install`` will fetch the package
     into ``__exodus_cache/deps/<name>/<sha256>/``, list it in ``aiml.packages.json``
     for ``@name/…`` imports (aiml spec/21 §3.1) and write ``digest`` back when it
