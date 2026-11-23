@@ -107,11 +107,11 @@ pytest
 
 ## Repository Layout
 
-- [exodus](/media/nikolai/95a208ef-ffa2-478b-abdd-ff394baa6a76/projects/python/exodus/exodus): package source
-- [tests](/media/nikolai/95a208ef-ffa2-478b-abdd-ff394baa6a76/projects/python/exodus/tests): automated tests
-- [spec](/media/nikolai/95a208ef-ffa2-478b-abdd-ff394baa6a76/projects/python/exodus/spec): notes and design documents
-- [LICENSE](/media/nikolai/95a208ef-ffa2-478b-abdd-ff394baa6a76/projects/python/exodus/LICENSE): license terms
+- [exodus](exodus): package source
+- [tests](tests): automated tests
+- [spec](spec): notes and design documents
+- [LICENSE](LICENSE): license terms
 
 ## License
 
-Exodus is distributed under the license in [LICENSE](/media/nikolai/95a208ef-ffa2-478b-abdd-ff394baa6a76/projects/python/exodus/LICENSE).
+Exodus is MIT licensed — see [LICENSE](LICENSE).
