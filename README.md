@@ -18,10 +18,13 @@ project layout may still change.
 ## Installation
 
 ```bash
-pip install exodus
+pip install git+https://github.com/Pymann/exodus.git
 ```
 
-For development:
+Exodus is not published on PyPI. The `exodus` package there is an unrelated
+project, so `pip install exodus` installs the wrong tool.
+
+For development, from a clone:
 
 ```bash
 pip install -e .[all]
