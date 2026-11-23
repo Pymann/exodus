@@ -43,8 +43,12 @@ all = [
 [project.urls]
 "Homepage" = "https://github.com/example/exodus"
 
-[tool.setuptools]
-packages = ["exodus"]
+[tool.setuptools.packages.find]
+include = ["exodus*"]
+
+[tool.setuptools.package-data]
+# The project templates are data files, not Python modules.
+"exodus.templates" = ["**/*"]
 
 [project.scripts]
 exodus = "exodus.main:main"
