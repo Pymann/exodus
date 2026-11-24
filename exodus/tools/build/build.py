@@ -746,6 +746,7 @@ class BuildTool:
         if not config_path.exists():
             self.logger.error("Config file not found: %s", config_path)
             return 1
+        self.logger.info("building project config %s", config_name)
         return self._run_config(config_name)
 
     def _run_config(self, config_name: str) -> int:
