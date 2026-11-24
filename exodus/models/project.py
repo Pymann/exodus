@@ -88,8 +88,9 @@ class LinkerConfig(BaseModel):
     rpath: bool = Field(
         default=True,
         description=(
-            "Auto-add -Wl,-rpath for each library_path (skips paths containing"
-            " ':' which is the rpath separator)"
+            "Auto-add -Wl,-rpath for each library_path. A cache path with ':'"
+            " (a Debian epoch; ':' separates rpath entries) is added through a"
+            " colon-free symlink under <cache>/rpath/"
         ),
     )
 

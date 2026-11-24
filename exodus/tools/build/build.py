@@ -155,22 +155,63 @@ class BuildTool:
 
         return False
 
+    @staticmethod
+    def _cache_root(config: ProjectConfig) -> Path:
+        """EXODUS_CACHE if set, else <source_root>/__exodus_cache (resolved)."""
+        env_cache = os.environ.get("EXODUS_CACHE")
+        if env_cache:
+            return Path(env_cache).resolve()
+        return (config.source_root / "__exodus_cache").resolve()
+
+    def _rpath_entry(self, lib_dir: str, config: ProjectConfig) -> Optional[str]:
+        """A directory as it can go into an RPATH/RUNPATH.
+
+        ':' separates RUNPATH entries, but Debian versions with an epoch put
+        one into every cache path (``.../libllvm18/amd64/1:18.1.3-1ubuntu1/...``).
+        Such a directory gets a colon-free alias inside the cache,
+        ``<cache>/rpath/<same path with ':' as '%3a'>`` (the spelling of the
+        .deb file names), a symlink to the real directory. A colon path
+        outside the cache cannot be aliased and is left out, as before.
+        """
+        if ":" not in lib_dir:
+            return lib_dir
+        cache = self._cache_root(config)
+        real = Path(lib_dir)
+        try:
+            rel = real.relative_to(cache)
+        except ValueError:
+            self.logger.warning(
+                "library path %s contains ':' and is outside the cache;"
+                " not added to the rpath",
+                lib_dir,
+            )
+            return None
+        if ":" in str(cache):
+            self.logger.warning(
+                "cache path %s contains ':'; %s not added to the rpath",
+                cache,
+                lib_dir,
+            )
+            return None
+        alias = cache / "rpath" / Path(*(p.replace(":", "%3a") for p in rel.parts))
+        if alias.is_symlink():
+            if Path(os.readlink(alias)) == real:
+                return str(alias)
+            alias.unlink()
+        elif alias.exists():
+            self.logger.warning("%s exists and is no symlink; rpath skipped", alias)
+            return None
+        alias.parent.mkdir(parents=True, exist_ok=True)
+        alias.symlink_to(real, target_is_directory=True)
+        return str(alias)
+
     def _expand_cache(self, s: Union[str, Path], config: ProjectConfig) -> str:
         """Replaces __exodus_cache with the cache directory path.
         If the EXODUS_CACHE environment variable is set, it is used as the path.
         Otherwise falls back to <source_root>/__exodus_cache."""
         s = str(s)
         if "__exodus_cache" in s:
-            import os
-
-            env_cache = os.environ.get("EXODUS_CACHE")
-            if env_cache:
-                abs_cache = str(Path(env_cache).resolve())
-            else:
-                abs_cache = str(
-                    (config.source_root / "__exodus_cache").resolve()
-                )
-            s = s.replace("__exodus_cache", abs_cache)
+            s = s.replace("__exodus_cache", str(self._cache_root(config)))
         # AIML venv placeholders (aiml spec/68 F68-23). $AIML_VENV first: it
         # starts with $AIML. Nothing else is expanded ($ORIGIN must stay).
         if "$AIML_VENV" in s:
@@ -611,8 +652,10 @@ class BuildTool:
             for lib_path in config.linker.library_paths:
                 expanded = self._expand_cache(lib_path, config)
                 cmd.append(f"-L{expanded}")
-                if config.linker.rpath and ":" not in expanded:
-                    cmd.append(f"-Wl,-rpath,{expanded}")
+                if config.linker.rpath:
+                    entry = self._rpath_entry(expanded, config)
+                    if entry:
+                        cmd.append(f"-Wl,-rpath,{entry}")
 
             # Libraries
             for lib in config.linker.libraries:
