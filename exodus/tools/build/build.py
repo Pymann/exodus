@@ -13,6 +13,65 @@ from exodus.models.project import Project, ProjectConfig
 from exodus.tools.clean.clean import CleanTool
 from exodus.core.logger import get_logger
 
+AIML_VENV_MARKER = "# aiml venv"
+
+
+class AimlPlaceholderError(RuntimeError):
+    pass
+
+
+def _venv_of(compiler: str) -> Optional[str]:
+    """The venv a compiler binary belongs to: <root>/bin/aiml with a marked <root>/env."""
+    root = Path(compiler).resolve().parent.parent
+    try:
+        first = (root / "env").read_text(encoding="utf-8").splitlines()[0]
+    except (OSError, IndexError):
+        return None
+    return str(root) if first.startswith(AIML_VENV_MARKER) else None
+
+
+def _compiler_from_env_or_path() -> Optional[str]:
+    env = os.environ.get("AIML")
+    if env:
+        return env
+    import shutil
+
+    return shutil.which("aiml")
+
+
+def aiml_venv_root() -> str:
+    """$AIML_VENV: the variable, else the venv the resolved compiler belongs to."""
+    env = os.environ.get("AIML_VENV")
+    if env:
+        return env
+    comp = _compiler_from_env_or_path()
+    root = _venv_of(comp) if comp else None
+    if root:
+        return root
+    raise AimlPlaceholderError(
+        "$AIML_VENV cannot be resolved: no AIML_VENV set and the aiml compiler"
+        " belongs to no venv — run `. <venv>/env` first"
+    )
+
+
+def aiml_compiler() -> str:
+    """$AIML: the variable, else <$AIML_VENV>/bin/aiml, else aiml from PATH."""
+    env = os.environ.get("AIML")
+    if env:
+        return env
+    venv = os.environ.get("AIML_VENV")
+    if venv:
+        return str(Path(venv) / "bin" / "aiml")
+    import shutil
+
+    found = shutil.which("aiml")
+    if found:
+        return found
+    raise AimlPlaceholderError(
+        "$AIML cannot be resolved: no AIML or AIML_VENV set and no aiml on PATH"
+        " — run `. <venv>/env` first"
+    )
+
 
 class BuildTool:
     """Tool for building the project."""
@@ -112,6 +171,12 @@ class BuildTool:
                     (config.source_root / "__exodus_cache").resolve()
                 )
             s = s.replace("__exodus_cache", abs_cache)
+        # AIML venv placeholders (aiml spec/68 F68-23). $AIML_VENV first: it
+        # starts with $AIML. Nothing else is expanded ($ORIGIN must stay).
+        if "$AIML_VENV" in s:
+            s = s.replace("$AIML_VENV", aiml_venv_root())
+        if "$AIML" in s:
+            s = s.replace("$AIML", aiml_compiler())
         return s
 
     @staticmethod
