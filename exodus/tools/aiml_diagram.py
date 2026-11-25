@@ -81,7 +81,9 @@ class AimlDiagramTool:
             entry_files = sorted(root.rglob("*.aiml"))
 
         parsed: dict[Path, AimlFile] = {}
-        pending = sorted({path.resolve() for path in entry_files if path.exists()})
+        pending = sorted(
+            {path.resolve() for path in entry_files if path.exists()}
+        )
         while pending:
             current = pending.pop(0)
             if current in parsed:
@@ -92,7 +94,11 @@ class AimlDiagramTool:
             parsed[current] = file_info
             for raw_import in file_info.imports:
                 resolved = self._resolve_import(current, root, raw_import)
-                if resolved is not None and resolved not in parsed and resolved not in pending:
+                if (
+                    resolved is not None
+                    and resolved not in parsed
+                    and resolved not in pending
+                ):
                     pending.append(resolved)
         return sorted(parsed.values(), key=lambda item: str(item.path))
 
@@ -143,13 +149,17 @@ class AimlDiagramTool:
                     file_info.symbols.append(symbol)
             if "class" in item and isinstance(item["class"], dict):
                 class_info = item["class"]
-                class_name = str(class_info.get("name", "")).strip() or path.stem
+                class_name = (
+                    str(class_info.get("name", "")).strip() or path.stem
+                )
                 methods = class_info.get("methods", [])
                 if isinstance(methods, list):
                     for method_item in methods:
                         if not isinstance(method_item, dict):
                             continue
-                        if "def" not in method_item or not isinstance(method_item["def"], dict):
+                        if "def" not in method_item or not isinstance(
+                            method_item["def"], dict
+                        ):
                             continue
                         symbol = self._parse_symbol(
                             path,
@@ -217,7 +227,9 @@ class AimlDiagramTool:
             ):
                 continue
             ordered_states = [
-                call for call in symbol.calls if call in state_names and call != symbol.name
+                call
+                for call in symbol.calls
+                if call in state_names and call != symbol.name
             ]
             if symbol.name in state_names and ordered_states:
                 edge = (symbol.name, ordered_states[0], symbol.name)
@@ -231,7 +243,11 @@ class AimlDiagramTool:
                     seen.add(edge)
 
         if self.args.format == "plantuml":
-            lines = ["@startuml", "hide empty description", "[*] --> run_session"]
+            lines = [
+                "@startuml",
+                "hide empty description",
+                "[*] --> run_session",
+            ]
             if not edges and "run_session" in state_names:
                 lines.append("run_session --> [*]")
             for source, target, label in edges:
@@ -269,7 +285,7 @@ class AimlDiagramTool:
         if self.args.format == "plantuml":
             lines = [
                 "@startuml",
-                'left to right direction',
+                "left to right direction",
                 'actor "Human Player" as Human',
                 'actor "Bot AI" as Bot',
                 'actor "Session Runtime" as Runtime',
@@ -294,7 +310,12 @@ class AimlDiagramTool:
             lines.append("@enduml")
             return "\n".join(lines)
 
-        lines = ["flowchart LR", "    Human[Human Player]", "    Bot[Bot AI]", "    Runtime[Session Runtime]"]
+        lines = [
+            "flowchart LR",
+            "    Human[Human Player]",
+            "    Bot[Bot AI]",
+            "    Runtime[Session Runtime]",
+        ]
         for method in rpc_methods:
             alias = self._alias("rpc_" + method)
             lines.append(f"    {alias}(({method}))")

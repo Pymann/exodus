@@ -105,8 +105,8 @@ class GitPkg(BaseModel):
         default_factory=list,
         description=(
             "Commands to run inside the cloned directory after checkout. "
-            "Each entry is an argv list (e.g. [\"./emsdk\", \"install\", "
-            "\"latest\"]). Subprocess invocations are NOT shell-evaluated."
+            'Each entry is an argv list (e.g. ["./emsdk", "install", '
+            '"latest"]). Subprocess invocations are NOT shell-evaluated.'
         ),
     )
     required: bool = Field(

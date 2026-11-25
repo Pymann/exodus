@@ -89,7 +89,9 @@ class MultiConfigCommandTests(unittest.TestCase):
             def run(self) -> int:
                 return 0
 
-        with patch.object(sys, "argv", ["exodus", "build", "-c", "custom.json"]):
+        with patch.object(
+            sys, "argv", ["exodus", "build", "-c", "custom.json"]
+        ):
             with patch.object(cli, "BuildTool", FakeBuildTool):
                 with self.assertRaises(SystemExit) as exit_ctx:
                     cli.main()

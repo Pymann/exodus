@@ -24,7 +24,6 @@ from typing import Dict, List, Optional, Tuple, TypedDict, cast
 from exodus.core.logger import get_logger
 from exodus.models.project import Project, ProjectConfig
 
-
 logger = get_logger(__name__)
 
 

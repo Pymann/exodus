@@ -54,7 +54,7 @@ class AimlDiagramToolTests(unittest.TestCase):
                     "- def:",
                     "    name: phase_spell",
                     "    body:",
-                    '      - call: [bot_phase_spell]',
+                    "      - call: [bot_phase_spell]",
                     "- def:",
                     "    name: bot_phase_spell",
                     "    body:",

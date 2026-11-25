@@ -65,7 +65,11 @@ class CleanTool:
                     return
                 for config_name in config_names:
                     proj = Project.load(Path.cwd(), config_name=config_name)
-                    self.logger.info("cleaning project %s (%s)", proj.config.name, config_name)
+                    self.logger.info(
+                        "cleaning project %s (%s)",
+                        proj.config.name,
+                        config_name,
+                    )
                     self._clean_config(proj.config)
             else:
                 if project is None:

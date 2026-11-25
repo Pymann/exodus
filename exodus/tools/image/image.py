@@ -6,7 +6,7 @@ import argparse
 import glob
 import re
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, cast
 
 from PIL import Image
 
@@ -76,8 +76,8 @@ class ImageTool:
     ) -> tuple[int, int]:
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        with Image.open(input_png) as image:
-            image = image.convert("RGBA")
+        with Image.open(input_png) as opened:
+            image = opened.convert("RGBA")
             width, height = image.size
 
             saved = 0
@@ -222,11 +222,19 @@ class ImageTool:
             (0, height // 2),
             (width - 1, height // 2),
         }
-        samples = [image.getpixel(point)[:3] for point in points]
-        return tuple(
+        samples: list[tuple[int, ...]] = []
+        for point in points:
+            pixel = image.getpixel(point)
+            if not isinstance(pixel, tuple):
+                raise ValueError(
+                    f"expected an RGBA pixel at {point}, got {pixel!r}"
+                )
+            samples.append(pixel[:3])
+        averaged = tuple(
             round(sum(sample[channel] for sample in samples) / len(samples))
             for channel in range(3)
         )
+        return averaged[0], averaged[1], averaged[2]
 
     @staticmethod
     def to_snake_case_name(name: str) -> str:
@@ -305,8 +313,8 @@ class ImageTool:
                 default_name=self.default_scaled_output_path(input_png).name,
             )
 
-            with Image.open(input_png) as image:
-                image = image.convert("RGBA")
+            with Image.open(input_png) as opened:
+                image = opened.convert("RGBA")
                 if self.args.mode == "stretch":
                     result = self.scale_stretch(image, resample)
                 elif self.args.mode == "contain":
@@ -343,8 +351,8 @@ class ImageTool:
         for input_png in input_pngs:
             self.ensure_png(input_png)
 
-            with Image.open(input_png) as image:
-                image = image.convert("RGBA")
+            with Image.open(input_png) as opened:
+                image = opened.convert("RGBA")
                 rgb = self.sample_border_rgb(image)
 
             print(
@@ -369,14 +377,23 @@ class ImageTool:
                 default_name=self.default_alpha_output_path(input_png).name,
             )
 
-            with Image.open(input_png) as image:
-                image = image.convert("RGBA")
+            with Image.open(input_png) as opened:
+                image = opened.convert("RGBA")
                 pixels = image.load()
+                if pixels is None:
+                    raise RuntimeError(
+                        f"cannot access the pixels of {input_png}"
+                    )
                 width, height = image.size
 
                 for y in range(height):
                     for x in range(width):
-                        r, g, b, a = pixels[x, y]
+                        # convert("RGBA") above guarantees 4-tuples; the
+                        # accessor's type is the union over all image modes, so
+                        # narrow here rather than testing per pixel.
+                        r, g, b, a = cast(
+                            "tuple[int, int, int, int]", pixels[x, y]
+                        )
                         dist = self.channel_distance((r, g, b), key)
 
                         if dist <= tolerance:

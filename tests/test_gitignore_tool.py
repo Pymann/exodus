@@ -14,7 +14,9 @@ class GitignoreToolTests(unittest.TestCase):
 
         self.assertEqual(entries, ["out/", "__exodus_cache/"])
 
-    def test_collect_entries_adds_build_root_artifact_and_map_file(self) -> None:
+    def test_collect_entries_adds_build_root_artifact_and_map_file(
+        self,
+    ) -> None:
         config = ProjectConfig(
             name="demo",
             build_root=Path("build-out"),

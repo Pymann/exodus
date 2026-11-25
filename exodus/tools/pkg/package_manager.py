@@ -40,18 +40,20 @@ _DEP_NAME_RE = re.compile(r"^([a-z0-9][a-z0-9.+\-]*)", re.IGNORECASE)
 
 # These fundamental packages are always present on any Linux system.
 # Adding them to the cache would shadow system libraries unnecessarily.
-_SKIP_AUTO_DEP_NAMES: frozenset[str] = frozenset({
-    "libc6",
-    "libgcc-s1",
-    "libgcc1",
-    "libstdc++6",
-    "libm6",
-    "multiarch-support",
-    "gcc-12-base",
-    "gcc-13-base",
-    "gcc-14-base",
-    "libc-bin",
-})
+_SKIP_AUTO_DEP_NAMES: frozenset[str] = frozenset(
+    {
+        "libc6",
+        "libgcc-s1",
+        "libgcc1",
+        "libstdc++6",
+        "libm6",
+        "multiarch-support",
+        "gcc-12-base",
+        "gcc-13-base",
+        "gcc-14-base",
+        "libc-bin",
+    }
+)
 
 
 class PackageManager:

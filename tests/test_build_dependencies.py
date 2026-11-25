@@ -102,7 +102,9 @@ class BuildDependencyTests(unittest.TestCase):
 
             self.assertTrue(should_recompile)
 
-    def test_derives_expected_generated_aiml_objects_from_depfile(self) -> None:
+    def test_derives_expected_generated_aiml_objects_from_depfile(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             cfg = self._make_config(root)
@@ -140,7 +142,9 @@ class BuildDependencyTests(unittest.TestCase):
                 },
             )
 
-    def test_filters_unexpected_generated_aiml_objects_from_directory_scan(self) -> None:
+    def test_filters_unexpected_generated_aiml_objects_from_directory_scan(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             cfg = self._make_config(root)
@@ -173,7 +177,9 @@ class BuildDependencyTests(unittest.TestCase):
 
             self.assertEqual(filtered, [expected_extra])
 
-    def test_missing_expected_generated_aiml_object_is_hard_error(self) -> None:
+    def test_missing_expected_generated_aiml_object_is_hard_error(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             cfg = self._make_config(root)
@@ -200,14 +206,18 @@ class BuildDependencyTests(unittest.TestCase):
                     cfg,
                 )
 
-    def test_filters_unexpected_non_aiml_extra_object_from_directory_scan(self) -> None:
+    def test_filters_unexpected_non_aiml_extra_object_from_directory_scan(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             cfg = self._make_config(root)
             tool = self._make_tool()
 
             source_file = root / "main.c"
-            source_file.write_text("int main(void){return 0;}", encoding="utf-8")
+            source_file.write_text(
+                "int main(void){return 0;}", encoding="utf-8"
+            )
             obj_file = tool._object_file_for_source(source_file, cfg)
             obj_file.parent.mkdir(parents=True, exist_ok=True)
             obj_file.write_text("", encoding="utf-8")
@@ -230,7 +240,9 @@ class BuildDependencyTests(unittest.TestCase):
             tool = self._make_tool()
 
             source_file = root / "main.c"
-            source_file.write_text("int main(void){return 0;}", encoding="utf-8")
+            source_file.write_text(
+                "int main(void){return 0;}", encoding="utf-8"
+            )
             explicit_obj = (root / "vendor" / "prebuilt.o").resolve()
             explicit_obj.parent.mkdir(parents=True, exist_ok=True)
             explicit_obj.write_text("", encoding="utf-8")

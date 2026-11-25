@@ -51,5 +51,7 @@ def test_origin_is_left_alone(monkeypatch):
     monkeypatch.setenv("AIML_VENV", "/opt/v")
     monkeypatch.setenv("AIML", "/opt/v/bin/aiml")
     tool = b.BuildTool.__new__(b.BuildTool)
-    s = tool._expand_cache("-Wl,-rpath,$ORIGIN/../lib:$AIML_VENV/lib $AIML", None)
+    s = tool._expand_cache(
+        "-Wl,-rpath,$ORIGIN/../lib:$AIML_VENV/lib $AIML", None
+    )
     assert s == "-Wl,-rpath,$ORIGIN/../lib:/opt/v/lib /opt/v/bin/aiml"

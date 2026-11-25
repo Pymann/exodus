@@ -63,26 +63,26 @@ jobs:
       # for its first caller, and it hides indefinitely behind an
       # `except Exception: pass` -- which is exactly how
       # misra_clang_rules.py:217 went unnoticed: json was never imported, so the
-      # state file was never written and nobody saw it.  Style is NOT gated
-      # here, see the advisory step.
+      # state file was never written and nobody saw it.  Kept separate from the
+      # formatting gate below, so a failure here always means a bug, never a
+      # blank line.
       - name: No undefined names
         run: |
           pip install flake8
           flake8 --select=F --count exodus/
 
-      # Reported, never blocking, and the reason is on the record: measured on
-      # 2026-11-25, `black --check` would reformat 17 files and mypy reports 11
-      # errors.  Gating either would make this workflow red from its first run,
-      # which only teaches people to ignore a red mark.
-      - name: Style and types (advisory)
-        continue-on-error: true
+      - name: Formatting
         run: |
-          pip install black mypy
-          {
-            echo "## Advisory"
-            echo '```'
-            black --check . 2>&1 | tail -n 3 || true
-            mypy exodus/ 2>&1 | tail -n 3 || true
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-          black --check . && mypy exodus/
+          pip install black
+          black --check .
+
+      # pyproject carries the [tool.mypy] settings, so this is the same check
+      # everywhere.  It was advisory for exactly one commit: 11 errors stood in
+      # the way, all of them real -- a Language that was None whenever
+      # tree-sitter was missing while the signature promised otherwise, four
+      # places that overwrote an opened image with its own converted copy, and
+      # pixel accessors used without checking what they returned.
+      - name: Types
+        run: |
+          pip install mypy
+          mypy exodus/
