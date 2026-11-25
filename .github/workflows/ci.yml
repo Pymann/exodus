@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (Ubuntu 24.04, Python 3.12)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"   # pyproject: requires-python = ">=3.12"
+
+      # A wheel, not an editable install.  This is the only step that can catch
+      # a subpackage or a template missing from the package data -- the thing
+      # that broke the installed exodus before (see "Package all subpackages and
+      # the templates").
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+
+      # Imported from somewhere other than the repository root, so the repo's
+      # own exodus/ directory cannot stand in for the installed package.
+      - name: The installed package is complete
+        run: |
+          cd "$RUNNER_TEMP"
+          python - <<'PY'
+          import importlib, pathlib, exodus
+          print("installed at", pathlib.Path(exodus.__file__).parent)
+          for m in (
+              "exodus.main",
+              "exodus.core.cli",
+              "exodus.models.project",
+              "exodus.tools.build.build",
+              "exodus.tools.pkg.package_manager",
+          ):
+              importlib.import_module(m)
+              print("ok", m)
+          PY
+          exodus --help > /dev/null
+          echo "console script ok"
+
+      # The unit tests run against the repository copy, which is what they are
+      # written for; the step above is what proves the wheel.
+      - name: Unit tests
+        run: |
+          pip install pytest
+          pytest -q
+
+      # Real bugs only (F = pyflakes).  An undefined name is a NameError waiting
+      # for its first caller, and it hides indefinitely behind an
+      # `except Exception: pass` -- which is exactly how
+      # misra_clang_rules.py:217 went unnoticed: json was never imported, so the
+      # state file was never written and nobody saw it.  Style is NOT gated
+      # here, see the advisory step.
+      - name: No undefined names
+        run: |
+          pip install flake8
+          flake8 --select=F --count exodus/
+
+      # Reported, never blocking, and the reason is on the record: measured on
+      # 2026-11-25, `black --check` would reformat 17 files and mypy reports 11
+      # errors.  Gating either would make this workflow red from its first run,
+      # which only teaches people to ignore a red mark.
+      - name: Style and types (advisory)
+        continue-on-error: true
+        run: |
+          pip install black mypy
+          {
+            echo "## Advisory"
+            echo '```'
+            black --check . 2>&1 | tail -n 3 || true
+            mypy exodus/ 2>&1 | tail -n 3 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          black --check . && mypy exodus/
