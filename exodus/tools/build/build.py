@@ -163,6 +163,36 @@ class BuildTool:
             return Path(env_cache).resolve()
         return (config.source_root / "__exodus_cache").resolve()
 
+    def _check_library_path(self, lib_dir: str) -> bool:
+        """Warn once about a library_path that does not exist.
+
+        Otherwise it is silent in both halves of the toolchain: the linker
+        ignores a ``-L`` it cannot read, and the loader skips an rpath entry
+        that resolves to nothing. Both then take the host's copy of whatever
+        that directory was meant to provide, so a pinned dependency quietly
+        becomes "whatever this machine happens to have". That is how a stale
+        pin hides -- a version the archive has superseded, which ``pkg
+        install`` could therefore never fetch into the cache -- until
+        something built against the host copy crashes.
+        """
+        if os.path.isdir(lib_dir):
+            return True
+        seen = getattr(self, "_warned_lib_paths", None)
+        if seen is None:
+            seen = set()
+            self._warned_lib_paths = seen
+        if lib_dir not in seen:
+            seen.add(lib_dir)
+            self.logger.warning(
+                "library path does not exist: %s -- it is skipped silently, so"
+                " whatever it should provide comes from the host instead. Run"
+                " `exodus pkg install`; if that fails for this package, the"
+                " pinned version is gone from the archive and the pin has to"
+                " be updated.",
+                lib_dir,
+            )
+        return False
+
     def _rpath_entry(self, lib_dir: str, config: ProjectConfig) -> Optional[str]:
         """A directory as it can go into an RPATH/RUNPATH.
 
@@ -651,6 +681,7 @@ class BuildTool:
             # Library Paths
             for lib_path in config.linker.library_paths:
                 expanded = self._expand_cache(lib_path, config)
+                self._check_library_path(expanded)
                 cmd.append(f"-L{expanded}")
                 if config.linker.rpath:
                     entry = self._rpath_entry(expanded, config)
