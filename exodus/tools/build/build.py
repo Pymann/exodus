@@ -828,6 +828,11 @@ class BuildTool:
         # TODO: Ideally pass the project path via args or find exodus.toml
         self.errorlevel = 0
         project = Project.load(Path.cwd(), config_name=config_name)
+        # aiml spec/68 F68-99/F68-100: pins are checked before anything is
+        # compiled; a mismatch warns and does not stop the build.
+        from exodus.tools.build.version_pins import check_version_pins
+
+        check_version_pins(project.config, config_name)
         self.config_file = Path(config_name)
         if self.config_file.exists():
             self.config_mtime = self.config_file.stat().st_mtime

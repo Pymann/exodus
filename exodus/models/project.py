@@ -9,6 +9,7 @@ from typing import Any, List, Dict, Optional, Literal
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from exodus.models.misra import MisraHeuristicsConfig
 from exodus.models.packages import AptPkg, ConanPkg, GitPkg
+from exodus.models.version_pin import VersionRange
 
 EXODUS_PROJECT_SCHEMA = "exodus.project.config-1.0"
 
@@ -45,6 +46,13 @@ class CompilerConfig(BaseModel):
     """Configuration for a C/C++ compiler."""
 
     name: str = "gcc"
+    version: Optional[VersionRange] = Field(
+        default=None,
+        description=(
+            "Version pin of the compiler (aiml spec/68 F68-95): an object of"
+            " eq/gt/ge/lt/le.  A mismatch warns and does not stop the build."
+        ),
+    )
     path: Optional[Path] = None
     lang_standard: Optional[str] = None
     flags: List[str] = Field(default_factory=list)
@@ -117,7 +125,13 @@ class Dependency(BaseModel):
     """
 
     name: str
-    version: Optional[str] = None
+    version: Optional[VersionRange] = Field(
+        default=None,
+        description=(
+            "Version pin of the dependency (aiml spec/68 F68-95): an object of"
+            " eq/gt/ge/lt/le, checked against the active aiml venv."
+        ),
+    )
     url: Optional[str] = None
     digest: Optional[str] = Field(
         default=None,
