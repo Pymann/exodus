@@ -85,3 +85,42 @@ jobs:
         run: |
           pip install mypy
           mypy exodus/
+
+      # The wheel that passed the gates above goes into Kontor's generic store, so
+      # other projects' CI (oculus) install this exact build instead of pip
+      # building from git: generic/exodus/<commit>/exodus.whl, and generic/exodus/
+      # latest/ for main.  A fixed file name, because the version in pyproject
+      # stays the same across commits; the consumer renames it from the dist-info.
+      #
+      # Best effort: a missing secret or a reader-only token must not fail a
+      # build that is otherwise green.
+      - name: Put the wheel into kontor
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        env:
+          KONTOR_URL: ${{ secrets.KONTOR_URL || secrets.AIML_KONTOR_URL }}
+          KONTOR_TOKEN: ${{ secrets.KONTOR_TOKEN || secrets.AIML_KONTOR_TOKEN }}
+          KONTOR_CA: ${{ secrets.KONTOR_CA || secrets.AIML_KONTOR_CA }}
+        run: |
+          set -eu
+          if [ -z "${KONTOR_URL:-}" ] || [ -z "${KONTOR_TOKEN:-}" ] || [ -z "${KONTOR_CA:-}" ]; then
+            echo "KONTOR_* secrets missing -- nothing stored."
+            exit 0
+          fi
+          work="$(mktemp -d)"
+          printf '%s\n' "$KONTOR_CA" > "$work/ca.crt"
+          pip wheel -q --no-deps -w "$work/dist" .
+          whl=$(ls "$work"/dist/exodus-*.whl)
+          summe=$(sha256sum "$whl" | cut -d' ' -f1)
+          for key in "$GITHUB_SHA" latest; do
+            ziel="${KONTOR_URL%/}/generic/exodus/${key}/exodus.whl"
+            # No `curl -k`: without certificate checking a man in the middle could
+            # take the write token.
+            curl --silent --show-error --fail-with-body --max-time 300 \
+                 --cacert "$work/ca.crt" \
+                 -H "Authorization: Bearer $KONTOR_TOKEN" \
+                 -H "X-Checksum-Sha256: $summe" \
+                 -X PUT -T "$whl" "$ziel"
+            echo "stored: generic/exodus/${key}/exodus.whl ($(basename "$whl"))"
+          done
+          rm -rf "$work"
