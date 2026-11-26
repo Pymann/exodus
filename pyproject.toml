@@ -11,10 +11,6 @@ requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.0",
     "Pillow>=10.0",
-    "tree-sitter>=0.21.0",
-    "tree-sitter-c>=0.21.0",
-    "tree-sitter-cpp>=0.21.0",
-    "clang>=20,<21",
     "conan==2.26.2"
 ]
 classifiers = [
@@ -61,7 +57,6 @@ pretty = true
 warn_unreachable = true
 no_implicit_optional = true
 namespace_packages = true
-mypy_path = "typings"
 
 [[tool.mypy.overrides]]
 # PyYAML ships no type stubs; treat it as untyped rather than pulling in a

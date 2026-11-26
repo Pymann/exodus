@@ -61,11 +61,10 @@ jobs:
 
       # Real bugs only (F = pyflakes).  An undefined name is a NameError waiting
       # for its first caller, and it hides indefinitely behind an
-      # `except Exception: pass` -- which is exactly how
-      # misra_clang_rules.py:217 went unnoticed: json was never imported, so the
-      # state file was never written and nobody saw it.  Kept separate from the
-      # formatting gate below, so a failure here always means a bug, never a
-      # blank line.
+      # `except Exception: pass` -- a missing `import json` once went unnoticed
+      # that way, so a state file was never written and nobody saw it.  Kept
+      # separate from the formatting gate below, so a failure here always means
+      # a bug, never a blank line.
       - name: No undefined names
         run: |
           pip install flake8

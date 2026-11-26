@@ -8,8 +8,6 @@ from typing import Any
 from exodus.tools.build.build import BuildTool
 from exodus.tools.clean.clean import CleanTool
 from exodus.tools.init.init import InitTool, get_available_templates
-from exodus.tools.analyze.analyze import AnalyzeTool
-from exodus.tools.analyze.misra_profiles import profile_choices
 from exodus.tools.deps.deps import DepsTool
 from exodus.tools.extract.extract import ExtractTool
 from exodus.tools.pkg.package_manager import PackageManager
@@ -128,86 +126,6 @@ def main() -> None:
         nargs="?",
         default=".",
         help="Target directory/project name for the new project",
-    )
-
-    # Command: analyze
-    analyze_parser = subparsers.add_parser(
-        "analyze", help="Run static analysis"
-    )
-    analyze_parser.add_argument(
-        "tool",
-        nargs="?",
-        default="cppcheck",
-        help="Analysis tool to run (default: cppcheck)",
-    )
-    analyze_parser.add_argument(
-        "-j",
-        "--jobs",
-        type=int,
-        default=4,
-        help="Number of parallel jobs for analysis (default: 4)",
-    )
-    analyze_parser.add_argument(
-        "--misra-profile",
-        default=None,
-        choices=profile_choices(),
-        help=(
-            "MISRA profile for rule mapping and reporting "
-            f"(overrides exodus.json; choices: {', '.join(profile_choices())})"
-        ),
-    )
-    analyze_parser.add_argument(
-        "--per-rule-output",
-        action="store_true",
-        help=(
-            "Write grouped analysis output into out/analyze/<project>/ "
-            "with one file per rule."
-        ),
-    )
-    analyze_parser.add_argument(
-        "--per-file-output",
-        action="store_true",
-        help=(
-            "Write grouped analysis output into out/analyze/<project>/ "
-            "with one .aal file per analyzed source file."
-        ),
-    )
-    analyze_parser.add_argument(
-        "--no-clang",
-        action="store_true",
-        help=(
-            "Disable clang-based analysis and run tree-sitter-only (stability"
-            " fallback)."
-        ),
-    )
-    analyze_parser.add_argument(
-        "--debug-clang",
-        action="store_true",
-        help=(
-            "Write per-file clang invocation diagnostics to"
-            " out/analyze/<project>/clang_debug.jsonl."
-        ),
-    )
-    analyze_parser.add_argument(
-        "--single-rules",
-        nargs="+",
-        default=None,
-        help=(
-            "Only report the given MISRA rules (space or comma separated), "
-            "e.g. --single-rules 8.4 17.3 or --single-rules 8.4,17.3"
-        ),
-    )
-    analyze_parser.add_argument(
-        "--skip-heuristic",
-        nargs="+",
-        default=None,
-        metavar="NAME",
-        help=(
-            "Skip selected analysis pipelines. Supported names: tree-sitter,"
-            " clang, regex, header-scan, cross-tu, project-config. Note:"
-            " skipping clang also disables cross-tu automatically. Aliases:"
-            " treesitter, ts, crosstu, config."
-        ),
     )
 
     # Command: deps
@@ -783,11 +701,6 @@ def main() -> None:
 
         tool = InitTool(args)
         tool.run()
-    elif args.command == "analyze":
-        # from ..tools.analyze import AnalyzeTool
-
-        tool = AnalyzeTool(args)
-        sys.exit(tool.run())
     elif args.command == "deps":
         # from ..tools.deps import DepsTool
 

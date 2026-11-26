@@ -2,44 +2,14 @@
 Project model definitions.
 """
 
-import os
 from pathlib import Path
 import json
 from typing import Any, List, Dict, Optional, Literal
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
-from exodus.models.misra import MisraHeuristicsConfig
 from exodus.models.packages import AptPkg, ConanPkg, GitPkg
 from exodus.models.version_pin import VersionRange
 
 EXODUS_PROJECT_SCHEMA = "exodus.project.config-1.0"
-
-
-def _env_path(var_name: str) -> Optional[Path]:
-    raw = os.environ.get(var_name, "").strip()
-    if not raw:
-        return None
-    return Path(raw).expanduser()
-
-
-def _env_int(var_name: str, default: int) -> int:
-    raw = os.environ.get(var_name, "").strip()
-    if not raw:
-        return default
-    try:
-        return int(raw)
-    except ValueError:
-        return default
-
-
-def _env_bool(var_name: str, default: bool) -> bool:
-    raw = os.environ.get(var_name, "").strip().lower()
-    if not raw:
-        return default
-    if raw in {"1", "true", "yes", "on"}:
-        return True
-    if raw in {"0", "false", "no", "off"}:
-        return False
-    return default
 
 
 class CompilerConfig(BaseModel):
@@ -60,21 +30,6 @@ class CompilerConfig(BaseModel):
         default_factory=list,
         description=(
             "Optional list of additional compilers used for this project."
-        ),
-    )
-    common_interface_defined: bool = Field(
-        default=True,
-        description=(
-            "Set to false if multiple compilers are used without a defined"
-            " common interface."
-        ),
-    )
-    integer_division_documented: bool = Field(
-        default=False,
-        description=(
-            "Set to true when integer division behavior of the chosen"
-            " compiler/toolchain is explicitly documented and accounted for"
-            "."
         ),
     )
 
@@ -201,68 +156,6 @@ class ProjectConfig(BaseModel):
         description="Warning flags (without -W prefix)",
     )
     werror: bool = Field(default=False, description="Treat warnings as errors")
-    misra_profile: Literal["c2012", "c2023", "cpp2008", "cpp2023"] = "cpp2008"
-    misra_heuristics: MisraHeuristicsConfig = Field(
-        default_factory=MisraHeuristicsConfig
-    )
-    clang_library_file: Optional[Path] = Field(
-        default_factory=lambda: _env_path("EXODUS_LIBCLANG"),
-        description=(
-            "Path to libclang shared library used by analyze. "
-            "Defaults from EXODUS_LIBCLANG when present."
-        ),
-    )
-    clang_node_limit: int = Field(
-        default_factory=lambda: _env_int("EXODUS_CLANG_NODE_LIMIT", 50000),
-        description=(
-            "Maximum number of AST nodes visited per translation unit during"
-            " clang-based analysis. Defaults from EXODUS_CLANG_NODE_LIMIT,"
-            " otherwise 50000."
-        ),
-    )
-    clang_worker_timeout_sec: int = Field(
-        default_factory=lambda: _env_int(
-            "EXODUS_CLANG_WORKER_TIMEOUT_SEC", 30
-        ),
-        description=(
-            "Maximum runtime in seconds for one clang analysis worker"
-            " subprocess. Defaults from EXODUS_CLANG_WORKER_TIMEOUT_SEC,"
-            " otherwise 30."
-        ),
-    )
-    clang_worker_parallelism: int = Field(
-        default_factory=lambda: _env_int("EXODUS_CLANG_WORKER_PARALLELISM", 4),
-        description=(
-            "Maximum number of concurrent clang worker subprocesses. "
-            "Defaults from EXODUS_CLANG_WORKER_PARALLELISM, otherwise 4."
-        ),
-    )
-    clang_parse_only_on_timeout: bool = Field(
-        default_factory=lambda: _env_bool(
-            "EXODUS_CLANG_PARSE_ONLY_ON_TIMEOUT", True
-        ),
-        description=(
-            "Retry a timed-out clang worker once in parse-only mode to keep "
-            "cross-TU facts while skipping AST heuristic checks for that file."
-        ),
-    )
-    clang_parse_only_on_crash: bool = Field(
-        default_factory=lambda: _env_bool(
-            "EXODUS_CLANG_PARSE_ONLY_ON_CRASH", True
-        ),
-        description=(
-            "Retry a crashed clang worker once in parse-only mode to keep "
-            "cross-TU facts while skipping AST heuristic checks for that file."
-        ),
-    )
-    project_headers_only: bool = Field(
-        default_factory=lambda: _env_bool("EXODUS_PROJECT_HEADERS_ONLY", True),
-        description=(
-            "Restrict C++ header scanning to project-local headers reachable "
-            "from the configured source files. Defaults from "
-            "EXODUS_PROJECT_HEADERS_ONLY, otherwise true."
-        ),
-    )
 
     source_root: Path = Path(".")
     build_root: Path = Path("out")
@@ -273,15 +166,6 @@ class ProjectConfig(BaseModel):
     )
     sources: List[str] = Field(
         default_factory=list, description="Source file patterns (globs)"
-    )
-    src_pattern_for_headers: List[str] = Field(
-        default_factory=list,
-        description=(
-            "Optional glob patterns that limit which project headers are"
-            " scanned during analyze. If unset, Exodus derives header globs"
-            " from the configured source patterns by replacing source suffixes"
-            " with header suffixes."
-        ),
     )
 
     # Build Settings

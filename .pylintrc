@@ -1,5 +1,4 @@
 [MAIN]
-ignore-paths=^typings/.*$
 persistent=no
 
 [FORMAT]
