@@ -1,5 +1,5 @@
 """
-Version pins (aiml spec/68 §7.2, F68-95 to F68-97).
+Version pins (aiml spec/68 §7.5, F68-114 to F68-116).
 
 A pin is an object of comparisons -- ``eq``, ``gt``, ``ge``, ``lt``, ``le`` --
 all of which must hold, so ``{"ge": "1.0.2.7", "lt": "1.1"}`` is a range.
@@ -7,7 +7,7 @@ all of which must hold, so ``{"ge": "1.0.2.7", "lt": "1.1"}`` is a range.
 range that admits nothing is an error.  Versions are dot-separated
 non-negative integers, a leading ``v`` dropped, compared segment by segment
 with a missing segment counting as 0.  `aiml build` reads the same keys with
-the same rules: two readers of one format must not disagree (F68-100).
+the same rules: two readers of one format must not disagree (F68-119).
 """
 
 from typing import List, Optional, Tuple
@@ -18,7 +18,7 @@ OPS = ("eq", "gt", "ge", "lt", "le")
 
 
 def parse_version(text: str) -> Optional[Tuple[int, ...]]:
-    """The segments of a version, None for anything F68-97 cannot read."""
+    """The segments of a version, None for anything F68-116 cannot read."""
     if text[:1] in ("v", "V"):
         text = text[1:]
     parts = text.split(".")
@@ -35,7 +35,7 @@ def compare_versions(a: Tuple[int, ...], b: Tuple[int, ...]) -> int:
 
 
 class VersionRange(BaseModel):
-    """``compiler.version`` / ``dependencies[].version`` (F68-96)."""
+    """``compiler.version`` / ``dependencies[].version`` (F68-115)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -51,7 +51,7 @@ class VersionRange(BaseModel):
         if v is not None and parse_version(v) is None:
             raise ValueError(
                 f"'{v}' is no version -- dot-separated numbers,"
-                " e.g. 1.0.2.7 (aiml spec/68 F68-97)"
+                " e.g. 1.0.2.7 (aiml spec/68 F68-116)"
             )
         return v
 
@@ -59,9 +59,9 @@ class VersionRange(BaseModel):
     def _shape(self) -> "VersionRange":
         ops = self.ops()
         if not ops:
-            raise ValueError("a version pin is empty (aiml spec/68 F68-96)")
+            raise ValueError("a version pin is empty (aiml spec/68 F68-115)")
         if self.eq is not None and len(ops) > 1:
-            raise ValueError("eq stands alone (aiml spec/68 F68-96)")
+            raise ValueError("eq stands alone (aiml spec/68 F68-115)")
         lo: Optional[Tuple[Tuple[int, ...], bool]] = None
         hi: Optional[Tuple[Tuple[int, ...], bool]] = None
         for op, raw in ops:
@@ -80,7 +80,7 @@ class VersionRange(BaseModel):
             if c > 0 or (c == 0 and (lo[1] or hi[1])):
                 raise ValueError(
                     f"the version pin {self.show()} admits no version"
-                    " (aiml spec/68 F68-96)"
+                    " (aiml spec/68 F68-115)"
                 )
         return self
 

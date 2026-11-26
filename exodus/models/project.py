@@ -49,7 +49,7 @@ class CompilerConfig(BaseModel):
     version: Optional[VersionRange] = Field(
         default=None,
         description=(
-            "Version pin of the compiler (aiml spec/68 F68-95): an object of"
+            "Version pin of the compiler (aiml spec/68 F68-114): an object of"
             " eq/gt/ge/lt/le.  A mismatch warns and does not stop the build."
         ),
     )
@@ -128,7 +128,7 @@ class Dependency(BaseModel):
     version: Optional[VersionRange] = Field(
         default=None,
         description=(
-            "Version pin of the dependency (aiml spec/68 F68-95): an object of"
+            "Version pin of the dependency (aiml spec/68 F68-114): an object of"
             " eq/gt/ge/lt/le, checked against the active aiml venv."
         ),
     )

@@ -1,4 +1,4 @@
-"""Version pins (aiml spec/68 §7.2): the model and the check before a build."""
+"""Version pins (aiml spec/68 §7.5): the model and the check before a build."""
 
 import io
 import json

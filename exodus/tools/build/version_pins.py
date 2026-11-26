@@ -1,6 +1,6 @@
 """
 The version pins of a configuration, checked before anything is compiled
-(aiml spec/68 F68-98 to F68-100).
+(aiml spec/68 F68-117 to F68-119).
 
 A mismatch is one line on stderr, in the form `aiml build` writes, and does
 not stop the build: an incompatibility is a signal, not a failure.  A host
